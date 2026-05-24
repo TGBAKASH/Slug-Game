@@ -1,0 +1,107 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "inverse-surface": "var(--color-inverse-surface)",
+        "surface-container-high": "var(--color-surface-container-high)",
+        "primary-container": "var(--color-primary-container)",
+        "on-primary-container": "var(--color-on-primary-container)",
+        "on-secondary-fixed": "var(--color-on-secondary-fixed)",
+        "surface-container-low": "var(--color-surface-container-low)",
+        "on-error": "var(--color-on-error)",
+        "secondary-container": "var(--color-secondary-container)",
+        "tertiary": "var(--color-tertiary)",
+        "inverse-on-surface": "var(--color-inverse-on-surface)",
+        "on-tertiary-fixed-variant": "var(--color-on-tertiary-fixed-variant)",
+        "on-tertiary-fixed": "var(--color-on-tertiary-fixed)",
+        "on-error-container": "var(--color-on-error-container)",
+        "on-background": "var(--color-on-bg)",
+        "surface": "var(--color-surface)",
+        "surface-dim": "var(--color-surface-dim)",
+        "on-primary": "var(--color-on-primary)",
+        "primary-fixed": "var(--color-primary-fixed)",
+        "outline": "var(--color-outline)",
+        "surface-container": "var(--color-surface-container)",
+        "inverse-primary": "var(--color-inverse-primary)",
+        "on-secondary-container": "var(--color-on-secondary-container)",
+        "surface-variant": "var(--color-surface-variant)",
+        "tertiary-container": "var(--color-tertiary-container)",
+        "surface-bright": "var(--color-surface-bright)",
+        "on-secondary-fixed-variant": "var(--color-on-secondary-fixed-variant)",
+        "background": "var(--color-bg)",
+        "error": "var(--color-error)",
+        "on-primary-fixed-variant": "var(--color-on-primary-fixed-variant)",
+        "tertiary-fixed": "var(--color-tertiary-fixed)",
+        "surface-container-lowest": "var(--color-surface-container-lowest)",
+        "on-tertiary-container": "var(--color-on-tertiary-container)",
+        "on-primary-fixed": "var(--color-on-primary-fixed)",
+        "outline-variant": "var(--color-outline-variant)",
+        "on-tertiary": "var(--color-on-tertiary)",
+        "secondary": "var(--color-secondary)",
+        "on-secondary": "var(--color-on-secondary)",
+        "surface-tint": "var(--color-surface-tint)",
+        "secondary-fixed-dim": "var(--color-secondary-fixed-dim)",
+        "error-container": "var(--color-error-container)",
+        "primary-fixed-dim": "var(--color-primary-fixed-dim)",
+        "secondary-fixed": "var(--color-secondary-fixed)",
+        "primary": "var(--color-primary)",
+        "on-surface": "var(--color-on-surface)",
+        "surface-container-highest": "var(--color-surface-container-highest)",
+        "tertiary-fixed-dim": "var(--color-tertiary-fixed-dim)"
+      },
+      borderRadius: {
+        "DEFAULT": "0.125rem",
+        "lg": "0.25rem",
+        "xl": "0.5rem",
+        "full": "0.75rem"
+      },
+      spacing: {
+        "gutter": "16px",
+        "unit": "4px",
+        "panel-padding": "12px",
+        "margin": "24px"
+      },
+      fontFamily: {
+        "headline-md": ["Space Grotesk", "sans-serif"],
+        "label-caps": ["JetBrains Mono", "monospace"],
+        "stats-lg": ["JetBrains Mono", "monospace"],
+        "body-md": ["JetBrains Mono", "monospace"],
+        "headline-xl": ["Space Grotesk", "sans-serif"],
+        "headline-lg": ["Space Grotesk", "sans-serif"]
+      },
+      animation: {
+        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+        'pulse-glow': 'pulse-glow 2s infinite',
+        'energy-flow': 'flow 3s infinite linear',
+        'scanline': 'scanline 4s linear infinite',
+      },
+      keyframes: {
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-10px)' },
+          '20%, 40%, 60%, 80%': { transform: 'translateX(10px)' },
+        },
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 15px rgba(56, 189, 248, 0.3)' },
+          '50%': { boxShadow: '0 0 30px rgba(56, 189, 248, 0.6)' },
+        },
+        flow: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
+        scanline: {
+          '0%': { top: '0%' },
+          '100%': { top: '100%' },
+        }
+      }
+    },
+  },
+  plugins: [],
+}

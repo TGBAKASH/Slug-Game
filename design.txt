@@ -1,0 +1,125 @@
+# Project Name: Slugterra - Cavern Clashes & The Dark Water Corruption
+# Target Tool: Google Stitch AI-Native Design Canvas
+# File Purpose: System Architecture, Design Tokens, & Interactive UI Flow Specification
+
+---
+
+## I. Global Context & Design Philosophy (For Stitch Canvas)
+- **Product Vision:** A gamified Web3 tactical card/arena battler based on the Slugterra cartoon series, deployed natively on the Sui Blockchain.
+- **The Core Vibe:** A high-visibility, cinematic underground atmosphere. Think glowing, toxic bio-luminescence meeting high-tech subterranean blaster gear.
+- **Target Audience:** Hackathon judges, web3 game enthusiasts, and "vibe coders" looking for hyper-polished, snappy UI feedback loops.
+- **Visual Design Directives:** - **Backgrounds:** Deep slate tones (`#0F172A`, `#020617`) mimicking deep cavern depths.
+  - **Light/Pure Elements:** Vibrant neon greens (`#22C55E`), clean electric cyans (`#06B6D4`), and bright elemental signatures.
+  - **Dark Water Elements:** Intense, glowing dark-purple shadows (`#A855F7`), corrupted magenta accents (`#D946EF`), and heavy toxic glowing gradients (`from-purple-900 to-slate-900`).
+  - **Typography:** Bold, heavy-set geometric headings for arcade stats paired with ultra-clean, high-readability sans-serif text for game mechanics.
+
+---
+
+## II. Smart Contract Code (`slugterra.move`)
+*Save this backend engine to your project directory. This contract follows strict Sui Move 2024 specifications.*
+
+```move
+module slugterra::game {
+    use std::string::{String};
+    use sui::coin::{Coin};
+    use sui::sui::SUI;
+    use sui::balance::{Balance};
+
+    // --- Constants & Error Codes ---
+    const ELEMENT_FIRE: u8 = 1;
+    const ELEMENT_EARTH: u8 = 2;
+    const ELEMENT_WATER: u8 = 3;
+
+    const E_INSUFFICIENT_FUNDS: u64 = 0;
+    const E_INVALID_ELEMENT: u64 = 1;
+
+    // --- Struct Definitions (Move 2024 Edition) ---
+
+    public struct Slug has key, store {
+        id: UID,
+        name: String,
+        element: u8,
+        power: u64,
+        is_ghouled: bool,
+        win_count: u64,
+    }
+
+    public struct MarketplaceConfig has key {
+        id: UID,
+        dark_water_price: u64, // Cost in MIST (10^9 MIST = 1 SUI)
+        vault: Balance<SUI>,
+    }
+
+    public struct AdminCap has key, store {
+        id: UID,
+    }
+
+    // --- Core Functions ---
+
+    fun init(ctx: &mut TxContext) {
+        let config = MarketplaceConfig {
+            id: object::new(ctx),
+            dark_water_price: 1_000_000_000, // 1 SUI Base Price
+            vault: sui::balance::zero(),
+        };
+        transfer::share_object(config);
+
+        let admin = AdminCap { id: object::new(ctx) };
+        transfer::public_transfer(admin, ctx.sender());
+    }
+
+    public entry fun mint_starter_slug(name: String, element: u8, ctx: &mut TxContext) {
+        assert!(element >= 1 && element <= 3, E_INVALID_ELEMENT);
+        let base_power = 10;
+        
+        let slug = Slug {
+            id: object::new(ctx),
+            name,
+            element,
+            power: base_power,
+            is_ghouled: false,
+            win_count: 0,
+        };
+        transfer::public_transfer(slug, ctx.sender());
+    }
+
+    public entry fun buy_dark_water_and_upgrade(
+        config: &mut MarketplaceConfig,
+        slug: &mut Slug,
+        mut payment: Coin<SUI>,
+        ctx: &mut TxContext
+    ) {
+        let price = config.dark_water_price;
+        assert!(payment.value() >= price, E_INSUFFICIENT_FUNDS);
+
+        // Extract accurate fee amount and put it into protocol storage vault
+        let paid_coin = payment.split(price, ctx);
+        config.vault.join(paid_coin.into_balance());
+        transfer::public_transfer(payment, ctx.sender());
+
+        // Perform the Corrupted Mutation
+        slug.is_ghouled = true;
+        slug.power = slug.power + 15;
+        
+        // Mutate the elemental status to its shadow/corrupted equivalent
+        if (slug.element == ELEMENT_FIRE) { slug.element = 4 }; // Shadow Fire
+        if (slug.element == ELEMENT_EARTH) { slug.element = 5 }; // Shadow Earth
+        if (slug.element == ELEMENT_WATER) { slug.element = 6 }; // Shadow Water
+    }
+
+    public entry fun execute_battle(slug: &mut Slug, enemy_element: u8, enemy_power: u64) {
+        let mut player_final_power = slug.power;
+
+        // Rock-Paper-Scissors Elemental Matrix Evaluation Matrix
+        if (slug.element == ELEMENT_FIRE && enemy_element == ELEMENT_EARTH) { player_final_power = player_final_power + 5; };
+        if (slug.element == ELEMENT_EARTH && enemy_element == ELEMENT_WATER) { player_final_power = player_final_power + 5; };
+        if (slug.element == ELEMENT_WATER && enemy_element == ELEMENT_FIRE) { player_final_power = player_final_power + 5; };
+        
+        // Ghouled / Dark Water Slugs shatter basic elements
+        if (slug.is_ghouled && enemy_element <= 3) { player_final_power = player_final_power + 8; };
+
+        if (player_final_power >= enemy_power) {
+            slug.win_count = slug.win_count + 1;
+        };
+    }
+}

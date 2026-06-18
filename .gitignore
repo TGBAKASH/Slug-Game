@@ -1,1 +1,24 @@
-testsprite_tests\tmp\config.json
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Sensitive
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Large assets (host separately or use Git LFS)
+# frontend/public/sequence/

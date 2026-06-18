@@ -1,0 +1,182 @@
+/* Scrollytelling Custom Utilities — Aethera Theme (Black & White) */
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.bg-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+.glitch-effect {
+  position: relative;
+}
+
+.glitch-effect::before,
+.glitch-effect::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.glitch-effect::before {
+  left: 2px;
+  text-shadow: -1px 0 rgba(255, 255, 255, 0.5);
+  animation: glitch-anim-1 2s infinite linear alternate-reverse;
+}
+
+.glitch-effect::after {
+  left: -2px;
+  text-shadow: 1px 0 rgba(200, 200, 200, 0.5);
+  animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim-1 {
+  0% {
+    clip-path: inset(20% 0 80% 0);
+  }
+  20% {
+    clip-path: inset(60% 0 10% 0);
+  }
+  40% {
+    clip-path: inset(40% 0 50% 0);
+  }
+  60% {
+    clip-path: inset(80% 0 5% 0);
+  }
+  80% {
+    clip-path: inset(10% 0 70% 0);
+  }
+  100% {
+    clip-path: inset(30% 0 40% 0);
+  }
+}
+
+@keyframes glitch-anim-2 {
+  0% {
+    clip-path: inset(10% 0 60% 0);
+  }
+  20% {
+    clip-path: inset(80% 0 5% 0);
+  }
+  40% {
+    clip-path: inset(30% 0 20% 0);
+  }
+  60% {
+    clip-path: inset(50% 0 30% 0);
+  }
+  80% {
+    clip-path: inset(5% 0 80% 0);
+  }
+  100% {
+    clip-path: inset(40% 0 10% 0);
+  }
+}
+
+@keyframes pulse-opacity {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-opacity {
+  animation: pulse-opacity 2s ease-in-out infinite;
+}
+
+/* ===================================================================== */
+/* Cinematic grade — Aethera black & white                                */
+/* ===================================================================== */
+
+/* Vignette + subtle scanlines. White-neutral, no color tint. */
+.scrolly-grade {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  mix-blend-mode: normal;
+  background:
+    radial-gradient(
+      120% 90% at 50% 42%,
+      transparent 55%,
+      rgba(0, 0, 0, 0.35) 88%,
+      rgba(0, 0, 0, 0.7) 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.04) 3px,
+      rgba(0, 0, 0, 0) 4px
+    );
+}
+
+/* Thin white sweep at top edge for a clean scanning feel. */
+.scrolly-grade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.04),
+    transparent 18%
+  );
+  opacity: 0.5;
+  animation: scrolly-sheen 6s ease-in-out infinite;
+}
+
+@keyframes scrolly-sheen {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Loader title pulse — white glow instead of cyan */
+@keyframes title-glow {
+  0%,
+  100% {
+    text-shadow:
+      0 0 14px rgba(255, 255, 255, 0.4),
+      0 4px 20px rgba(0, 0, 0, 1);
+  }
+  50% {
+    text-shadow:
+      0 0 28px rgba(255, 255, 255, 0.7),
+      0 0 48px rgba(255, 255, 255, 0.25),
+      0 4px 20px rgba(0, 0, 0, 1);
+  }
+}
+.animate-title-glow {
+  animation: title-glow 2.4s ease-in-out infinite;
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .scrolly-grade::after,
+  .animate-title-glow,
+  .animate-pulse-opacity,
+  .glitch-effect::before,
+  .glitch-effect::after {
+    animation: none !important;
+  }
+}

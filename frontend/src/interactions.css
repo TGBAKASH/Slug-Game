@@ -1,0 +1,199 @@
+/* ============================================================
+   interactions.css — site-wide micro-interaction layer
+   Loaded after slugterra_v8.css + enhancements.css so it can
+   refine tactile feedback without fighting existing styles.
+   Targets the project's REAL class names. All motion is
+   disabled under prefers-reduced-motion.
+   ============================================================ */
+
+/* ---- Global easing: snappy, springy interactions ---- */
+:root {
+  --ix-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ix-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Tab content: re-trigger an entrance on every tab switch ----
+   App.tsx remounts .tab-panel via key={activeTab}, so this plays
+   each time the active tab changes. */
+@keyframes ix-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.992);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.tab-panel.active {
+  animation: ix-tab-in 0.5s var(--ix-smooth) both;
+}
+
+/* ---- Bottom nav: icon pop + lift + active glow ---- */
+.bnav-btn {
+  transition:
+    color 0.22s,
+    background 0.22s,
+    transform 0.18s var(--ix-spring);
+}
+.bnav-btn:hover {
+  background: rgba(0, 245, 255, 0.06);
+  transform: translateY(-3px);
+}
+.bnav-btn:hover svg {
+  transform: translateY(-2px) scale(1.18);
+  filter: drop-shadow(0 0 6px rgba(0, 245, 255, 0.7));
+}
+.bnav-btn:active {
+  transform: translateY(-1px) scale(0.94) !important;
+}
+.bnav-btn.active svg {
+  filter: drop-shadow(0 0 7px currentColor);
+}
+/* animated underline indicator on the active nav item */
+.bnav-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px currentColor;
+  animation: ix-nav-dot 0.4s var(--ix-spring) both;
+}
+@keyframes ix-nav-dot {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 18px;
+    opacity: 1;
+  }
+}
+
+/* ---- Tactile press feedback on all primary controls ----
+   Existing rules set :hover transforms with !important, so press
+   states also use !important and are defined here (later in the
+   cascade) to win while hovering + pressing simultaneously. */
+.btn-primary:active,
+.btn-secondary:active,
+.hatchery-mint-btn:active,
+.hatchery-el-btn:active,
+.lb-filter-btn:active,
+.stake-btn:active,
+.join-fight-btn:active,
+.arena-deploy-btn:active,
+.wager-init-btn:active,
+.mutation-inject-btn:active,
+.hero-cta:active,
+.arena-close-btn:active {
+  transform: scale(0.95) !important;
+  transition: transform 0.08s ease !important;
+}
+
+/* gentle hover lift for the big call-to-action buttons */
+.btn-primary:hover,
+.hatchery-mint-btn:hover,
+.join-fight-btn:hover,
+.arena-deploy-btn:hover,
+.wager-init-btn:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* ---- Cards: subtle media zoom on hover (lift already exists) ---- */
+.slug-card,
+.hatchery-tier-card,
+.hatchery-card,
+.canister-card {
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s,
+    transform 0.3s var(--ix-smooth) !important;
+}
+.slug-card .slug-viewport,
+.canister-card .canister-canvas,
+.hatchery-card-viewport {
+  transition: transform 0.5s var(--ix-smooth);
+}
+.slug-card:hover .slug-viewport,
+.canister-card:hover .canister-canvas,
+.hatchery-card:hover .hatchery-card-viewport {
+  transform: scale(1.06);
+}
+
+/* power/stat bars animate their glow on card hover */
+.slug-card:hover .power-fill,
+.slug-card:hover .slug-power-bar {
+  filter: brightness(1.25) drop-shadow(0 0 6px var(--card-accent, #00f5ff));
+}
+
+/* ---- Filter / pill buttons: springy hover ---- */
+.lb-filter-btn,
+.hatchery-el-btn,
+.stake-btn {
+  transition: all 0.25s var(--ix-spring) !important;
+}
+.lb-filter-btn:hover,
+.hatchery-el-btn:hover {
+  transform: translateY(-1px) scale(1.04);
+}
+
+/* ---- Leaderboard rows: slide highlight on hover ---- */
+.lb-row {
+  transition:
+    background 0.25s,
+    transform 0.25s var(--ix-smooth);
+}
+.lb-row:hover {
+  transform: translateX(4px);
+  background: rgba(0, 245, 255, 0.05);
+}
+
+/* ---- Connect-wallet button (dapp-kit) gets press feedback too ---- */
+#app-header button:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+/* ---- Header status dot: living pulse ---- */
+.status-dot {
+  animation: ix-pulse 2s ease-in-out infinite;
+}
+@keyframes ix-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px currentColor;
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 12px currentColor;
+  }
+}
+
+/* ---- Respect reduced-motion: kill all of the above motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel.active,
+  .bnav-btn.active::after,
+  .status-dot {
+    animation: none !important;
+  }
+  .bnav-btn,
+  .bnav-btn:hover,
+  .bnav-btn:active,
+  .bnav-btn:hover svg,
+  .slug-card:hover .slug-viewport,
+  .canister-card:hover .canister-canvas,
+  .hatchery-card:hover .hatchery-card-viewport,
+  .lb-row:hover,
+  .lb-filter-btn:hover,
+  .hatchery-el-btn:hover {
+    transform: none !important;
+  }
+}

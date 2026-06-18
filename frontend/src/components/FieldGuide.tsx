@@ -1,6 +1,28 @@
 import React, { useState } from "react";
-import { BookOpen, Shield, Flame, Droplets, Mountain, Wind, Skull, Sparkles, Coins, Zap } from "lucide-react";
+import { BookOpen, Shield, Flame, Droplets, Mountain, Wind, Sparkles, Coins, Zap, Heart, Swords, Clock } from "lucide-react";
 import { motion } from "framer-motion";
+
+const TiltCard = ({ children, color = "var(--surface-border)" }: { children: React.ReactNode, color?: string }) => {
+  return (
+    <motion.div
+      whileHover={{ scale: 1.05, rotateY: 10, rotateX: -5, borderColor: "var(--neon-cyan)", boxShadow: "0 20px 40px rgba(0,0,0,0.05), 0 0 20px rgba(0,245,255,0.1)" }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      style={{
+        background: "var(--panel-bg)",
+        border: `1px solid ${color}`,
+        padding: "24px",
+        clipPath: "polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)",
+        perspective: 1000,
+        transformStyle: "preserve-3d",
+        cursor: "pointer"
+      }}
+    >
+      <div style={{ transform: "translateZ(20px)" }}>
+        {children}
+      </div>
+    </motion.div>
+  );
+};
 
 export const FieldGuide: React.FC = () => {
   const [activeChapter, setActiveChapter] = useState<number>(1);
@@ -8,287 +30,433 @@ export const FieldGuide: React.FC = () => {
   const chapters = [
     {
       id: 1,
-      title: "Biological Affinity Wheel",
-      short: "Element Interactions",
-      icon: <Flame className="w-4 h-4 text-red-500" />,
+      title: "Elements & Base Stats",
+      short: "Slug Types & Combat Advantage",
+      icon: <Flame size={16} />,
       content: (
-        <div className="space-y-6">
-          <p className="text-body-md text-on-surface-variant leading-relaxed">
-            Every Protoform Slug possesses an **Elemental Affinity** that aligns with one of the four cardinal forces of nature. Inside the combat grid, these elements behave in a tactical **Rock-Paper-Scissors cycle**:
+        <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+          <p style={{fontSize: "14px", lineHeight: 1.7, color: "var(--ink)"}}>
+            Each slug is assigned one of <strong>4 elements</strong> at mint time. Elements determine base HP, Attack, and combat advantage. The advantage cycle gives <strong>×1.15 damage</strong> (15% bonus) when attacking a weaker element, and <strong>×0.85 damage</strong> (15% penalty) against a stronger element. Same-element matchups deal neutral ×1.0 damage.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <Flame className="w-8 h-8 text-red-500 mx-auto" />
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">🔥 FIRE CORE</h4>
-              <p className="text-[11px] text-outline">Consumes **Air Core** elements, gaining a **+6 Power Advantage**. Weak against **Water Core**.</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <Mountain className="w-8 h-8 text-emerald-500 mx-auto" />
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">⛰️ EARTH CORE</h4>
-              <p className="text-[11px] text-outline">Absorbs **Water Core** elements, gaining a **+6 Power Advantage**. Weak against **Air Core**.</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <Droplets className="w-8 h-8 text-cyan-400 mx-auto" />
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">💧 WATER CORE</h4>
-              <p className="text-[11px] text-outline">Extinguishes **Fire Core** elements, gaining a **+6 Power Advantage**. Weak against **Earth Core**.</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <Wind className="w-8 h-8 text-teal-300 mx-auto" />
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">🌀 AIR CORE</h4>
-              <p className="text-[11px] text-outline">Erodes **Earth Core** elements, gaining a **+6 Power Advantage**. Weak against **Fire Core**.</p>
-            </div>
+          <div style={{display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px"}}>
+            <TiltCard>
+              <Flame size={32} color="#FF4500" style={{marginBottom: "12px"}} />
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)", marginBottom: "8px"}}>🔥 FIRE — Decent Tier</h4>
+              <p style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.6}}>
+                <strong>Base HP: 85 | Base ATK: 20</strong><br/>
+                Glass cannon — lowest HP but highest ATK of all elements.<br/>
+                <span style={{color: "var(--neon-cyan)"}}>Beats Earth (+15%)</span> · <span style={{color: "var(--neon-orange)"}}>Weak to Water (-15%)</span>
+              </p>
+              <div style={{marginTop: "8px", fontSize: "10px", fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)"}}>Growth: HP +1%/lvl · ATK +4%/lvl</div>
+            </TiltCard>
+            <TiltCard>
+              <Droplets size={32} color="#00BFFF" style={{marginBottom: "12px"}} />
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)", marginBottom: "8px"}}>💧 WATER — Very Good Tier</h4>
+              <p style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.6}}>
+                <strong>Base HP: 120 | Base ATK: 14</strong><br/>
+                Best overall — high HP with solid attack. Hardest to obtain.<br/>
+                <span style={{color: "var(--neon-cyan)"}}>Beats Fire (+15%)</span> · <span style={{color: "var(--neon-orange)"}}>Weak to Earth (-15%)</span>
+              </p>
+              <div style={{marginTop: "8px", fontSize: "10px", fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)"}}>Growth: HP +3%/lvl · ATK +2%/lvl</div>
+            </TiltCard>
+            <TiltCard>
+              <Mountain size={32} color="#228B22" style={{marginBottom: "12px"}} />
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)", marginBottom: "8px"}}>⛰️ EARTH — Decent Tier</h4>
+              <p style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.6}}>
+                <strong>Base HP: 130 | Base ATK: 10</strong><br/>
+                Maximum tank — highest HP in the game but lowest ATK.<br/>
+                <span style={{color: "var(--neon-cyan)"}}>Beats Air (+15%)</span> · <span style={{color: "var(--neon-orange)"}}>Weak to Fire (-15%)</span>
+              </p>
+              <div style={{marginTop: "8px", fontSize: "10px", fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)"}}>Growth: HP +4%/lvl · ATK +1%/lvl</div>
+            </TiltCard>
+            <TiltCard>
+              <Wind size={32} color="#20B2AA" style={{marginBottom: "12px"}} />
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)", marginBottom: "8px"}}>🌀 AIR — Good Tier</h4>
+              <p style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.6}}>
+                <strong>Base HP: 105 | Base ATK: 16</strong><br/>
+                Well balanced — good ATK with decent HP. Solid all-rounder.<br/>
+                <span style={{color: "var(--neon-cyan)"}}>Beats Water (+15%)</span> · <span style={{color: "var(--neon-orange)"}}>Weak to Earth (-15%)</span>
+              </p>
+              <div style={{marginTop: "8px", fontSize: "10px", fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)"}}>Growth: HP +2%/lvl · ATK +3%/lvl</div>
+            </TiltCard>
           </div>
 
-          <div className="p-4 bg-purple-950/20 border border-purple-500/30 rounded-xl space-y-2">
-            <h4 className="font-label-caps text-xs font-black text-purple-400 flex items-center gap-2">
-              <Skull className="w-4 h-4" /> THE SHADOW CORRUPTED BIOME (GHOULS)
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            style={{padding: "20px", background: "rgba(0, 245, 255, 0.05)", border: "1px solid rgba(0, 245, 255, 0.3)", clipPath: "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)"}}
+          >
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--neon-cyan)", display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px"}}>
+              <Swords size={16} /> ELEMENTAL ADVANTAGE CYCLE
             </h4>
-            <p className="text-xs text-purple-300 leading-relaxed">
-              When a slug undergoes **Ghoul Metamorphosis** in the Mutation Lab by injecting Dark Water, its basic core shifts permanently into a **Shadow Core** (Shadow Fire, Shadow Earth, etc.). In addition to gaining a massive permanent `+5` base power and `+10` HP boost, **Shadow Cores completely dominate all four basic element types**, giving your slug a **+8 Shadow Power Advantage** regardless of basic counter matchups!
+            <p style={{fontSize: "13px", color: "var(--ink)", lineHeight: 1.6}}>
+              <strong>Water → Fire → Earth → Air → Water</strong>. Each round, both slugs attack simultaneously. <strong>Damage = ATK × elemental multiplier</strong> (×1.15 advantage, ×0.85 disadvantage, ×1.0 neutral). Maximum 10 rounds — if neither is KO'd, the slug with more remaining HP wins. If HP is tied, higher ATK wins.
             </p>
-          </div>
+          </motion.div>
         </div>
       )
     },
     {
       id: 2,
-      title: "RPG Level Engine",
-      short: "Levels & Progression",
-      icon: <Zap className="w-4 h-4 text-yellow-400" />,
+      title: "Minting & Drop Rates",
+      short: "Free & Premium Hatching",
+      icon: <Sparkles size={16} />,
       content: (
-        <div className="space-y-6">
-          <p className="text-body-md text-on-surface-variant leading-relaxed">
-            Every battle in the Cavern Arena awards you valuable **Dark Coins**. These resources are critical to unlocking your slug's maximum potential (Level 1 to 100).
+        <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+          <p style={{fontSize: "14px", lineHeight: 1.7, color: "var(--ink)"}}>
+            Element is determined <strong>on-chain at mint time</strong> — you cannot choose which element you get. Premium minting costs <strong>0.5 SUI</strong> and gives significantly better odds for Water and Air slugs.
           </p>
 
-          <div className="grid grid-cols-1 gap-6">
-
-            <div className="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-yellow-950/30 border border-yellow-500/30 flex items-center justify-center text-yellow-400">
-                  <Coins className="w-4 h-4 text-yellow-500" />
-                </div>
-                <h4 className="font-label-caps text-xs font-bold text-on-surface">Dark Coins Fuel</h4>
+          <div style={{display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px"}}>
+            <TiltCard>
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "13px", fontWeight: "bold", color: "var(--ink)", marginBottom: "16px"}}>FREE MINT (0 SUI)</h4>
+              <div style={{fontSize: "13px", color: "var(--ink)", lineHeight: 2}}>
+                💧 Water <span style={{fontFamily: "'Orbitron', monospace", color: "var(--neon-cyan)", fontWeight: "bold"}}>(5%)</span> — Very rare<br/>
+                🌀 Air <span style={{fontFamily: "'Orbitron', monospace", color: "var(--neon-cyan)", fontWeight: "bold"}}>(15%)</span> — Uncommon<br/>
+                🔥 Fire <span style={{fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)", fontWeight: "bold"}}>(40%)</span> — Common<br/>
+                🌿 Earth <span style={{fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)", fontWeight: "bold"}}>(40%)</span> — Common
               </div>
-              <p className="text-xs text-on-surface-variant leading-relaxed">
-                Dark Coins are minted directly by winning matches. These coins are burned during the level-up process.
-              </p>
-              <div className="bg-surface-container p-3 rounded-lg border border-outline-variant font-body-md text-[10px] text-yellow-500">
-                Cost per Level: **Common: 50 | Rare: 100 | Epic: 150 | Legendary: 250** coins
+              <div style={{marginTop: "16px", padding: "8px 12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)", fontSize: "11px", fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)"}}>
+                Getting Water is very hard, Air is hard, Fire/Earth are common
               </div>
-            </div>
+            </TiltCard>
+            <TiltCard color="var(--neon-cyan)">
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "13px", fontWeight: "bold", color: "var(--neon-cyan)", marginBottom: "16px"}}>PREMIUM MINT (0.5 SUI)</h4>
+              <div style={{fontSize: "13px", color: "var(--ink)", lineHeight: 2}}>
+                💧 Water <span style={{fontFamily: "'Orbitron', monospace", color: "var(--neon-cyan)", fontWeight: "bold"}}>(10%)</span> — Hard<br/>
+                🌀 Air <span style={{fontFamily: "'Orbitron', monospace", color: "var(--neon-cyan)", fontWeight: "bold"}}>(30%)</span> — Medium<br/>
+                🔥 Fire <span style={{fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)", fontWeight: "bold"}}>(30%)</span> — Easy<br/>
+                🌿 Earth <span style={{fontFamily: "'Orbitron', monospace", color: "var(--ink-dim)", fontWeight: "bold"}}>(30%)</span> — Easy
+              </div>
+              <div style={{marginTop: "16px", padding: "8px 12px", background: "rgba(0, 245, 255, 0.08)", border: "1px solid rgba(0, 245, 255, 0.2)", fontSize: "11px", fontFamily: "'Orbitron', monospace", color: "var(--neon-cyan)"}}>
+                +100 Dark Coins bonus on premium mint!
+              </div>
+            </TiltCard>
           </div>
 
-          <div className="p-4 bg-primary-container/10 border border-primary-container/20 rounded-xl">
-            <h4 className="font-label-caps text-xs font-bold text-primary-container mb-1">💪 LEVEL UP REWARD VALUE</h4>
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              When you click **Level Up** in the CommandCenter (Dashboard) profile slot, the spent coins are burned and your slug's level increments by 1 (max level 100), rewarding a permanent **+5 base power boost**!
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            style={{padding: "20px", background: "rgba(0, 245, 255, 0.05)", border: "1px solid rgba(0, 245, 255, 0.3)", clipPath: "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)"}}
+          >
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--neon-cyan)", display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px"}}>
+              <Shield size={16} /> NAMING YOUR SLUG
+            </h4>
+            <p style={{fontSize: "13px", color: "var(--ink)", lineHeight: 1.6}}>
+              You can optionally type a custom name for your slug during minting. If you leave the name blank, the contract auto-names it based on element: <strong>INFERNO</strong> (Fire), <strong>TIDAL</strong> (Water), <strong>BOULDER</strong> (Earth), <strong>ZEPHYR</strong> (Air).
             </p>
-          </div>
+          </motion.div>
         </div>
       )
     },
     {
       id: 3,
-      title: "SUI Gas Sponsor Engine",
-      short: "Zero Gas-Fee Loans",
-      icon: <Shield className="w-4 h-4 text-primary-container" />,
+      title: "Leveling & Economy",
+      short: "Dark Coins & Stats Growth",
+      icon: <Zap size={16} />,
       content: (
-        <div className="space-y-6">
-          <p className="text-body-md text-on-surface-variant leading-relaxed">
-            One of the biggest hurdles of Web3 is having to buy SUI tokens just to pay for gas to mint your very first item. Slugterra solves this completely!
+        <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+          <p style={{fontSize: "14px", lineHeight: 1.7, color: "var(--ink)"}}>
+            Slugs level from 1 to <strong>50</strong>. Each level up recalculates HP and ATK on-chain using element-specific growth percentages. The cost to level up is <strong>current level × 10 Dark Coins</strong>.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <div className="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center bg-surface-variant mx-auto font-black text-xs text-primary-container">1</div>
-              <h4 className="font-label-caps text-[10px] font-bold text-on-surface">FREE START REQUEST</h4>
-              <p className="text-[10px] text-outline">You choose a Free Mint. SUI network detects an empty wallet balances slot.</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <div className="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center bg-surface-variant mx-auto font-black text-xs text-primary-container">2</div>
-              <h4 className="font-label-caps text-[10px] font-bold text-on-surface">SPONSORED LOAN BOX</h4>
-              <p className="text-[10px] text-outline">Our backend gas sponsor pool automatically pays for the gas transaction fee in the background.</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl text-center space-y-2">
-              <div className="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center bg-surface-variant mx-auto font-black text-xs text-primary-container">3</div>
-              <h4 className="font-label-caps text-[10px] font-bold text-on-surface">DECENTRALIZED MINT</h4>
-              <p className="text-[10px] text-outline">The transaction confirms live on-chain, and your Protoform is transferred directly into your wallet!</p>
-            </div>
+          <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+            <TiltCard>
+              <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px"}}>
+                <div style={{width: "40px", height: "40px", borderRadius: "8px", background: "rgba(234, 179, 8, 0.1)", display: "flex", alignItems: "center", justifyContent: "center"}}>
+                  <Coins size={20} color="#EAB308" />
+                </div>
+                <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "14px", fontWeight: "bold", color: "var(--ink)"}}>Dark Coins</h4>
+              </div>
+              <ul style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.8, paddingLeft: "16px", listStyleType: "disc"}}>
+                <li>Start with <strong>350 coins</strong> on first load</li>
+                <li>Win PvE: <strong>20–40 base coins</strong>, scales +15%/level</li>
+                <li>Premium mint bonus: <strong>+100 coins</strong></li>
+                <li>Quantum Spin can award <strong>50–300 coins</strong> (70% chance)</li>
+                <li>Stored in browser localStorage</li>
+              </ul>
+            </TiltCard>
+            <TiltCard>
+              <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px"}}>
+                <div style={{width: "40px", height: "40px", borderRadius: "8px", background: "rgba(0, 245, 255, 0.1)", display: "flex", alignItems: "center", justifyContent: "center"}}>
+                  <Zap size={20} color="#00f5ff" />
+                </div>
+                <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "14px", fontWeight: "bold", color: "var(--ink)"}}>Level Up Costs</h4>
+              </div>
+              <div style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.8}}>
+                <strong>Level × 10 coins</strong> per level up:<br/>
+                Lv.1→2: <strong>10</strong> coins<br/>
+                Lv.5→6: <strong>50</strong> coins<br/>
+                Lv.10→11: <strong>100</strong> coins<br/>
+                Lv.25→26: <strong>250</strong> coins<br/>
+                Lv.49→50: <strong>490</strong> coins
+              </div>
+            </TiltCard>
           </div>
 
-          <p className="text-xs text-on-surface-variant text-center font-label-caps opacity-80">
-            🌟 This means *anyone* can connect their SUI wallet and start playing immediately without paying a single dime!
-          </p>
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            style={{padding: "20px", background: "rgba(0, 245, 255, 0.05)", border: "1px solid rgba(0, 245, 255, 0.3)", clipPath: "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)"}}
+          >
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--neon-cyan)", display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px"}}>
+              📈 GROWTH PER LEVEL (APPLIED ON-CHAIN)
+            </h4>
+            <div style={{display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px"}}>
+              <div style={{fontSize: "12px", color: "var(--ink)", textAlign: "center", padding: "12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)"}}>
+                🔥 <strong>Fire</strong><br/>HP +1%/lvl<br/>ATK +4%/lvl<br/><span style={{fontSize: "10px", color: "var(--ink-dim)"}}>Lv50: 127 HP / 59 ATK</span>
+              </div>
+              <div style={{fontSize: "12px", color: "var(--ink)", textAlign: "center", padding: "12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)"}}>
+                💧 <strong>Water</strong><br/>HP +3%/lvl<br/>ATK +2%/lvl<br/><span style={{fontSize: "10px", color: "var(--ink-dim)"}}>Lv50: 296 HP / 27 ATK</span>
+              </div>
+              <div style={{fontSize: "12px", color: "var(--ink)", textAlign: "center", padding: "12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)"}}>
+                ⛰️ <strong>Earth</strong><br/>HP +4%/lvl<br/>ATK +1%/lvl<br/><span style={{fontSize: "10px", color: "var(--ink-dim)"}}>Lv50: 384 HP / 14 ATK</span>
+              </div>
+              <div style={{fontSize: "12px", color: "var(--ink)", textAlign: "center", padding: "12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)"}}>
+                🌀 <strong>Air</strong><br/>HP +2%/lvl<br/>ATK +3%/lvl<br/><span style={{fontSize: "10px", color: "var(--ink-dim)"}}>Lv50: 207 HP / 39 ATK</span>
+              </div>
+            </div>
+            <p style={{fontSize: "11px", color: "var(--ink-dim)", marginTop: "12px", fontStyle: "italic"}}>
+              Formula: final_stat = base + (base × growth_rate × (level - 1) / 1000). Growth is calculated on-chain by the smart contract.
+            </p>
+          </motion.div>
         </div>
       )
     },
     {
       id: 4,
-      title: "Multiplayer Wager Arenas",
-      short: "On-Chain SUI Wagers",
-      icon: <BookOpen className="w-4 h-4 text-cyan-400" />,
+      title: "PvE Training Grounds",
+      short: "Earn Coins & Level Up",
+      icon: <Shield size={16} />,
       content: (
-        <div className="space-y-6">
-          <p className="text-body-md text-on-surface-variant leading-relaxed">
-            For advanced operators looking for true high-stakes competition, the **PVP Matchmaker** connects players from around the world to wage real SUI tokens.
+        <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+          <p style={{fontSize: "14px", lineHeight: 1.7, color: "var(--ink)"}}>
+            Training Grounds lets you fight auto-generated enemies to earn Dark Coins. Battles are <strong>HP-based round combat</strong> (max 10 rounds). No SUI cost, no energy cost.
           </p>
 
-          <div className="bg-surface-container-lowest border-2 border-primary-container/30 p-5 rounded-2xl space-y-4">
-            <h4 className="font-label-caps text-xs font-black text-primary-container">Decentralized Matchmaking Logic:</h4>
-            
-            <ul className="space-y-3 text-xs text-on-surface-variant list-disc pl-5 leading-relaxed">
-              <li>
-                **Select Wager Presets:** When creating or joining a matchmaking lobby, operators select one of three preset wager levels: **1 SUI, 5 SUI, or 10 SUI**.
-              </li>
-              <li>
-                **Shared Wager Pool:** Player 1 creates a lobby and locks their preset deposit (e.g. 1 SUI) into the contract's shared object pool.
-              </li>
-              <li>
-                **Pool Matching:** Player 2 enters the lobby with a matching SUI wager. The shared lobby pool now aggregates **2x the SUI wager** (e.g. 2 SUI total).
-              </li>
-              <li>
-                **Pure On-Chain Duel:** The Move smart contract immediately resolves combat inside the transaction block based on elemental power matrices.
-              </li>
-              <li>
-                **Winner Takes All:** The total wager pool is directly sent to the winner's wallet. The winner also claims a premium combat reward of **+60 Dark Coins**!
-              </li>
+          <TiltCard>
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "13px", fontWeight: "bold", color: "var(--ink)", marginBottom: "16px"}}>⚔️ HOW PVE COMBAT WORKS</h4>
+            <ul style={{display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px", color: "var(--ink)", lineHeight: 1.6, paddingLeft: "20px", listStyleType: "disc"}}>
+              <li>Enemy spawns with an element (Fire/Water/Earth/Air) and stats based on that element's base stats (±30% variance).</li>
+              <li>Each round: <strong>Damage = ATK × elemental multiplier</strong> (×1.15 / ×0.85 / ×1.0)</li>
+              <li>Both slugs attack simultaneously — damage is subtracted from HP.</li>
+              <li>Combat runs for <strong>max 10 rounds</strong>. KO = instant win/loss.</li>
+              <li>If both alive after 10 rounds: <strong>higher remaining HP wins</strong>. If HP tied, <strong>higher ATK wins</strong>. If both tied, it's a draw.</li>
+              <li>If both hit 0 HP on the same round, it's a <strong>draw</strong> (no reward, no penalty).</li>
             </ul>
+          </TiltCard>
+
+          <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+            <TiltCard color="var(--neon-cyan)">
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--neon-cyan)", marginBottom: "12px"}}>🏆 WIN REWARDS</h4>
+              <ul style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.8, paddingLeft: "16px", listStyleType: "disc"}}>
+                <li>Base: <strong>20–40 coins</strong></li>
+                <li>Scaled by slug level: <strong>+15% per level</strong></li>
+                <li>Lv.1: ~20–40 coins</li>
+                <li>Lv.10: ~47–94 coins</li>
+                <li>Lv.25: ~92–184 coins</li>
+              </ul>
+            </TiltCard>
+            <TiltCard color="var(--neon-orange)">
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--neon-orange)", marginBottom: "12px"}}>💤 LOSS PENALTIES (SLEEP)</h4>
+              <ul style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.8, paddingLeft: "16px", listStyleType: "disc"}}>
+                <li>1st consecutive loss: <strong>5 min sleep</strong></li>
+                <li>2nd consecutive loss: <strong>15 min sleep</strong></li>
+                <li>3rd+ consecutive loss: <strong>30 min sleep</strong></li>
+                <li>Skip sleep: <strong>5 coins per minute</strong> remaining</li>
+                <li>0 coins earned on loss</li>
+              </ul>
+            </TiltCard>
           </div>
         </div>
       )
     },
     {
       id: 5,
-      title: "Dark Water & Mutation Lab",
-      short: "Corruption & Ghouls",
-      icon: <Skull className="w-4 h-4 text-purple-400" />,
+      title: "PvP Wager Arena",
+      short: "Double-Blind SUI Duels",
+      icon: <BookOpen size={16} />,
       content: (
-        <div className="space-y-6">
-          <p className="text-body-md text-on-surface-variant leading-relaxed">
-            Unleash the forbidden power of **Dark Water Corruption** inside the high-tech Mutation Lab. Transforming your slug shifts its power tier, but introduces dangerous volatility.
+        <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+          <p style={{fontSize: "14px", lineHeight: 1.7, color: "var(--ink)"}}>
+            PvP uses a <strong>double-blind commit-reveal</strong> pattern on-chain. Neither player can see the other's slug element before both players reveal. This makes element selection truly strategic.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl space-y-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-950/30 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">1. Dark Injections</h4>
-              <p className="text-[11px] text-outline leading-relaxed">
-                Inject Dark Water (costing SUI) to corrupt the slug by **+12% to +26%** per dose. Each bubble increases stats cleanly by **+1 Power** and **+2 Max HP** for balanced, natural scaling.
-              </p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl space-y-2">
-              <div className="w-8 h-8 rounded-lg bg-red-950/30 border border-red-500/30 flex items-center justify-center text-red-400">
-                <Zap className="w-4 h-4" />
-              </div>
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">2. Quantum Volatility</h4>
-              <p className="text-[11px] text-outline leading-relaxed">
-                Crossing **50% Corruption** makes the reactor volatile, triggering active glitch chances:
-                <br />• **30% Critical Surge**: Deals double damage!
-                <br />• **15% Reactor Backfire**: Output drops by 30% or deals self-damage (-15 HP).
-              </p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl space-y-2">
-              <div className="w-8 h-8 rounded-lg bg-fuchsia-950/30 border border-fuchsia-500/30 flex items-center justify-center text-fuchsia-400">
-                <Skull className="w-4 h-4" />
-              </div>
-              <h4 className="font-label-caps text-xs font-bold text-on-surface">3. Ghoul Awakening</h4>
-              <p className="text-[11px] text-outline leading-relaxed">
-                At **100% Corruption**, use a **Mutation Core** to permanently transform the slug into a **Ghoul (Shadow Class)**.
-                <br />• Core changes permanently to a dominant **Shadow element**.
-                <br />• Receives **+5 Power, +10 Max HP**, **20% Life-Steal**, and special **Shadow Finishers**.
-              </p>
-            </div>
-          </div>
+          <TiltCard color="var(--neon-orange)">
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "13px", fontWeight: "bold", color: "var(--neon-orange)", marginBottom: "16px"}}>📋 PVP STEP-BY-STEP:</h4>
+            
+            <ul style={{display: "flex", flexDirection: "column", gap: "12px", fontSize: "13px", color: "var(--ink)", lineHeight: 1.6, paddingLeft: "20px", listStyleType: "decimal"}}>
+              <li>
+                <strong>Create Lobby:</strong> Player 1 selects a wager (<strong>1, 5, or 10 SUI</strong>), picks a slug, and submits a <strong>blake2b hash</strong> of their slug ID + a secret salt. SUI is locked in escrow on-chain.
+              </li>
+              <li>
+                <strong>Join Lobby:</strong> Player 2 sees only the wager amount — <strong>NOT the opponent's element, stats, or slug</strong>. They submit their own hash + matching SUI wager.
+              </li>
+              <li>
+                <strong>Reveal Phase:</strong> Both players reveal their slug ID + salt. The smart contract verifies each player's hash matches their revealed slug. Stats are read from the on-chain Slug object.
+              </li>
+              <li>
+                <strong>On-Chain Combat:</strong> The contract runs HP-based round combat with elemental advantage (same ×1.15 / ×0.85 / ×1.0 system as PvE). Winner is determined on-chain.
+              </li>
+              <li>
+                <strong>Winner Takes All:</strong> The entire 2× wager pool is sent to the winner's wallet. Draw = both get refunded.
+              </li>
+            </ul>
+          </TiltCard>
 
-          <div className="p-4 bg-purple-950/35 border-2 border-purple-500/40 rounded-xl">
-            <h4 className="font-label-caps text-xs font-bold text-purple-400 flex items-center gap-2 mb-1">
-              <Zap className="w-4 h-4 animate-pulse" /> COSMIC SHADOW ADVANTAGE
-            </h4>
-            <p className="text-xs text-purple-200 leading-relaxed">
-              Shadow elements completely ignore the basic elemental affinity wheel! A Shadow Core gains an absolute **+8 Shadow Power Advantage** against any basic core (Fire, Water, Earth, or Air) regardless of typical element counters.
-            </p>
+          <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+            <TiltCard>
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px"}}>
+                <Clock size={14} /> TIMEOUT PROTECTION
+              </h4>
+              <p style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.6}}>
+                If a player doesn't reveal within <strong>3 minutes</strong> after both join, the other player can call <strong>claim_timeout</strong> to take the entire pot. This prevents griefing.
+              </p>
+            </TiltCard>
+            <TiltCard>
+              <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px"}}>
+                <Shield size={14} /> CANCEL LOBBY
+              </h4>
+              <p style={{fontSize: "12px", color: "var(--ink)", lineHeight: 1.6}}>
+                If no opponent has joined yet, Player 1 can cancel their lobby to get their SUI wager refunded in full. Once Player 2 joins, cancellation is no longer possible.
+              </p>
+            </TiltCard>
           </div>
         </div>
       )
-    }
+    },
+    {
+      id: 6,
+      title: "Quantum Spin",
+      short: "Daily Gacha — 0.05 SUI",
+      icon: <Zap size={16} />,
+      content: (
+        <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+          <p style={{fontSize: "14px", lineHeight: 1.7, color: "var(--ink)"}}>
+            The Quantum Reactor lets you spin once every <strong>24 hours</strong> for <strong>0.05 SUI</strong>. You can win slugs or Dark Coins.
+          </p>
+
+          <TiltCard color="var(--neon-cyan)">
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "13px", fontWeight: "bold", color: "var(--neon-cyan)", marginBottom: "16px"}}>🎰 SPIN REWARD TABLE</h4>
+            <div style={{display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px", color: "var(--ink)"}}>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "rgba(0, 245, 255, 0.08)", border: "1px solid rgba(0, 245, 255, 0.15)"}}>
+                <span>💧 Water Slug</span>
+                <span style={{fontFamily: "'Orbitron', monospace", fontWeight: "bold", color: "var(--neon-cyan)"}}>5%</span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)"}}>
+                <span>🌀 Air Slug</span>
+                <span style={{fontFamily: "'Orbitron', monospace", fontWeight: "bold"}}>10%</span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--bg-secondary)", border: "1px solid var(--surface-border)"}}>
+                <span>🔥 Fire or 🌿 Earth Slug</span>
+                <span style={{fontFamily: "'Orbitron', monospace", fontWeight: "bold"}}>15%</span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "rgba(234, 179, 8, 0.08)", border: "1px solid rgba(234, 179, 8, 0.15)"}}>
+                <span>🪙 Dark Coins (50–300)</span>
+                <span style={{fontFamily: "'Orbitron', monospace", fontWeight: "bold", color: "#EAB308"}}>70%</span>
+              </div>
+            </div>
+            <p style={{fontSize: "11px", color: "var(--ink-dim)", marginTop: "12px", fontStyle: "italic"}}>
+              Cooldown: 24 hours between spins. Enforced on-chain via SpinRegistry.
+            </p>
+          </TiltCard>
+
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            style={{padding: "20px", background: "rgba(0, 245, 255, 0.05)", border: "1px solid rgba(0, 245, 255, 0.3)", clipPath: "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)"}}
+          >
+            <h4 style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--neon-cyan)", display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px"}}>
+              🔥 ASCEND (BURN)
+            </h4>
+            <p style={{fontSize: "13px", color: "var(--ink)", lineHeight: 1.6}}>
+              You can burn a slug to permanently destroy it and recover <strong>10% of the total Dark Coins</strong> you spent leveling it up. Useful for recycling unwanted slugs into resources.
+            </p>
+          </motion.div>
+        </div>
+      )
+    },
   ];
 
   return (
-    <div className="space-y-10 relative z-10 py-4 max-w-5xl mx-auto">
-      {/* View Header */}
-      <header className="text-center max-w-2xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary-container/10 border border-primary-container/20 rounded-full font-label-caps text-xs text-primary-container">
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>Operator Handbook</span>
-        </div>
-        <h2 className="text-headline-xl font-headline-xl font-black uppercase tracking-tight text-on-background">
-          Cavern Field Guide
-        </h2>
-        <p className="text-body-md text-on-surface-variant">
-          Master elemental matrices, SUI gas loan mechanics, RPG leveling pathways, and secure wagering rules to dominate the deep caverns.
-        </p>
-      </header>
-
-      {/* Main Split Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* Left Side: Chapter List Selection (4 columns) */}
-        <aside className="lg:col-span-4 space-y-3">
-          <span className="block font-label-caps text-[9px] text-on-surface-variant uppercase tracking-widest pl-1">
-            HANDBOOK TABLE OF CONTENTS
-          </span>
-          <div className="space-y-2">
-            {chapters.map((ch) => {
-              const isActive = activeChapter === ch.id;
-
-              return (
-                <motion.button
-                  key={ch.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveChapter(ch.id)}
-                  className={`w-full text-left p-4 rounded-xl border flex items-center justify-between transition-all group ${
-                    isActive
-                      ? "bg-primary-container/10 border-primary-container text-primary-container shadow-[0_0_15px_rgba(56,189,248,0.1)] font-bold scale-102"
-                      : "bg-surface-container-low border-outline-variant text-on-surface hover:text-primary-container hover:border-on-surface-variant"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {ch.icon}
-                    <div className="flex flex-col">
-                      <span className="font-headline-md text-xs group-hover:text-primary-container transition-colors">
-                        {ch.title}
-                      </span>
-                      <span className="text-[9px] font-label-caps text-outline uppercase mt-0.5">
-                        {ch.short}
-                      </span>
-                    </div>
-                  </div>
-                </motion.button>
-              );
-            })}
+    <div className="tab-panel active animate-fade-in pb-20">
+      <div className="panel-header" style={{borderBottom: "none"}}>
+        <div className="panel-header-inner" style={{margin: "0 auto", maxWidth: "1060px", textAlign: "center"}}>
+          <div className="section-label" style={{justifyContent: "center", marginBottom: "16px"}}>
+            <BookOpen size={14} style={{marginRight: "8px"}}/> OPERATOR HANDBOOK
           </div>
-        </aside>
+          <h2 className="section-title">Cavern Field Guide</h2>
+          <p className="panel-desc" style={{margin: "10px auto 0", maxWidth: "600px"}}>
+            Complete guide to Slugterra's mechanics — elements, minting, leveling, PvE combat, PvP wagers, and the Quantum Reactor. All values match the deployed Sui smart contract.
+          </p>
+        </div>
+      </div>
 
-        {/* Right Side: Chapter Content Display (8 columns) */}
-        <main className="lg:col-span-8 bg-surface-container-low border border-outline-variant rounded-2xl p-8 shadow-xl min-h-[400px] flex flex-col">
-          <div className="border-b border-outline-variant/30 pb-4 mb-6">
-            <h3 className="text-headline-lg font-headline-lg uppercase text-on-surface tracking-tight">
+      <div style={{maxWidth: "1060px", margin: "20px auto 0", display: "flex", flexWrap: "wrap", gap: "32px"}}>
+        
+        {/* Left Side: Chapter List */}
+        <div style={{display: "flex", flexDirection: "column", gap: "12px", flex: "1 1 250px"}}>
+          <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", color: "var(--ink-dim)", letterSpacing: "2px", marginBottom: "4px"}}>
+            TABLE OF CONTENTS
+          </div>
+          {chapters.map((ch) => {
+            const isActive = activeChapter === ch.id;
+
+            return (
+              <motion.button
+                key={ch.id}
+                whileHover={{ scale: 1.03, x: 5 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setActiveChapter(ch.id)}
+                style={{
+                  background: isActive ? "var(--surface-border)" : "transparent",
+                  border: `1px solid ${isActive ? "var(--ink)" : "var(--surface-border)"}`,
+                  borderLeft: isActive ? "4px solid var(--neon-cyan)" : "1px solid var(--surface-border)",
+                  padding: "16px",
+                  clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "background 0.3s, border 0.3s"
+                }}
+              >
+                <div style={{color: isActive ? "var(--neon-cyan)" : "var(--ink-dim)"}}>
+                  {ch.icon}
+                </div>
+                <div style={{display: "flex", flexDirection: "column", gap: "4px"}}>
+                  <span style={{fontFamily: "'Orbitron', monospace", fontSize: "12px", fontWeight: "bold", color: "var(--ink)"}}>
+                    {ch.title}
+                  </span>
+                  <span style={{fontFamily: "'Orbitron', monospace", fontSize: "9px", letterSpacing: "1px", color: "var(--ink)", textTransform: "uppercase"}}>
+                    {ch.short}
+                  </span>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Right Side: Chapter Content */}
+        <div className="hatchery-tier-card" style={{flex: "3 1 600px", background: "var(--panel-bg)", border: "1px solid var(--surface-border)", padding: "40px", clipPath: "polygon(16px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%)", minHeight: "500px", display: "flex", flexDirection: "column"}}>
+          <div style={{borderBottom: "1px solid var(--surface-border)", paddingBottom: "16px", marginBottom: "24px"}}>
+            <h3 style={{fontFamily: "'Orbitron', monospace", fontSize: "24px", fontWeight: "900", color: "var(--ink)", marginBottom: "8px", textTransform: "uppercase"}}>
               {chapters.find((ch) => ch.id === activeChapter)?.title}
             </h3>
-            <span className="font-label-caps text-[9px] text-outline tracking-wider">
+            <span style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "3px", color: "var(--neon-cyan)", textTransform: "uppercase"}}>
               CHAPTER 0{activeChapter} DATA FILE
             </span>
           </div>
 
-          <div className="flex-grow">
-            {chapters.find((ch) => ch.id === activeChapter)?.content}
+          <div style={{flexGrow: 1}}>
+            <motion.div
+              key={activeChapter}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {chapters.find((ch) => ch.id === activeChapter)?.content}
+            </motion.div>
           </div>
-        </main>
+        </div>
 
       </div>
     </div>

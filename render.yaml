@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: slugterra
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: API_SECRET
+        generateValue: true

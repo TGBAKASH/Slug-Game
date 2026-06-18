@@ -46,6 +46,28 @@ class SoundManager {
     return this.isMuted;
   }
 
+  public playHover() {
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.05);
+    
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.1);
+  }
+
   // continuous laboratory reactor hum
   public startHum() {
     this.resume();

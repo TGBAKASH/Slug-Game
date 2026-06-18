@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useGameState } from "../context/GameState";
-import { X, User, Coins, Sparkles, Droplets, Wallet, Save } from "lucide-react";
+import { X, User, Coins, Wallet, Save } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ProfileModalProps {
@@ -8,7 +8,7 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
-  const { username, setUsername, darkCoins, fusionShards, mutationCores, walletMode } = useGameState();
+  const { username, setUsername, darkCoins, walletMode } = useGameState();
   const [tempName, setTempName] = useState(username);
 
   const handleSave = () => {
@@ -81,22 +81,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
                 </div>
                 <span className="font-stats-lg text-yellow-400 font-black">{darkCoins}</span>
               </div>
-              
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-label-caps text-on-surface">FUSION SHARDS</span>
-                </div>
-                <span className="font-stats-lg text-cyan-400 font-black">{fusionShards}</span>
-              </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Droplets className="w-4 h-4 text-purple-400" />
-                  <span className="text-xs font-label-caps text-on-surface">MUTATION CORES</span>
-                </div>
-                <span className="font-stats-lg text-purple-400 font-black">{mutationCores}</span>
-              </div>
             </div>
           </div>
         </div>

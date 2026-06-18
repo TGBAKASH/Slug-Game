@@ -1,0 +1,206 @@
+/* =====================================================================
+   enhancements.css
+   Additive, opt-in polish layered on top of the existing Aethera theme.
+   Nothing here overrides component styles by element/tag — everything is a
+   new utility class or a safe global refinement — so it won't fight slugterra_v8.css.
+   Imported from index.css.
+   ===================================================================== */
+
+/* ---- Smoother scrolling + crisper text everywhere ---- */
+html {
+  scroll-behavior: smooth;
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Neon custom scrollbar (cosmetic, safe) ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 245, 255, 0.5) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 245, 255, 0.6),
+    rgba(255, 107, 0, 0.55)
+  );
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 245, 255, 0.9),
+    rgba(255, 107, 0, 0.8)
+  );
+  background-clip: padding-box;
+}
+
+/* ---- Accessible focus ring for keyboard users ---- */
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid rgba(0, 245, 255, 0.9);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* =====================================================================
+   OPT-IN UTILITY CLASSES (add a className to use them)
+   ===================================================================== */
+
+/* Animated neon gradient border. Wrap or apply to a rounded element. */
+.fx-neon-border {
+  position: relative;
+  isolation: isolate;
+}
+.fx-neon-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: linear-gradient(
+    130deg,
+    #00f5ff,
+    #0080ff,
+    #ff0055,
+    #ff6b00,
+    #00f5ff
+  );
+  background-size: 300% 300%;
+  animation: fx-border-flow 8s linear infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes fx-border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Lift + glow on hover. Great for cards / tiles. */
+.fx-hover-lift {
+  transition:
+    transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 0.28s ease,
+    border-color 0.28s ease;
+  will-change: transform;
+}
+.fx-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 40px -12px rgba(0, 245, 255, 0.45),
+    0 0 0 1px rgba(0, 245, 255, 0.25);
+}
+
+/* Sweep-shine on hover. Apply to buttons; element should be position:relative + overflow:hidden. */
+.fx-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.fx-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.fx-shimmer:hover::after {
+  left: 130%;
+}
+
+/* Subtle infinite float. */
+.fx-float {
+  animation: fx-float 5s ease-in-out infinite;
+}
+@keyframes fx-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Animated gradient text fill. */
+.fx-gradient-text {
+  background: linear-gradient(90deg, #00f5ff, #ffffff, #ff6b00, #00f5ff);
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fx-text-shimmer 6s linear infinite;
+}
+@keyframes fx-text-shimmer {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: 250% center;
+  }
+}
+
+/* Soft entrance — add when mounting content you want to fade up. */
+.fx-rise-in {
+  animation: fx-rise-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes fx-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Global reduced-motion guard for everything above ---- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .fx-neon-border::before,
+  .fx-float,
+  .fx-gradient-text,
+  .fx-rise-in,
+  .fx-shimmer::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .fx-hover-lift {
+    transition: none !important;
+  }
+}

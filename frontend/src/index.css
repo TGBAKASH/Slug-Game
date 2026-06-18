@@ -1,4 +1,7 @@
+@import "./slugterra_v8.css";
 @import "tailwindcss";
+@import "./enhancements.css";
+@import "./interactions.css";
 @config "../tailwind.config.js";
 
 :root, .dark {
@@ -54,6 +57,34 @@
   --bg-cavern-blend: multiply;
   --bg-cavern-gradient-pure: radial-gradient(ellipse at center, #141e45 0%, #0f1735 60%, #0a1128 100%);
   --bg-glass-panel: rgba(20, 30, 69, 0.75);
+}
+
+/* Aethera light-theme override: wrap any component in .aethera-panel
+   and all Tailwind --color-* utilities automatically adapt. */
+.aethera-panel {
+  --color-bg: #FFFFFF;
+  --color-on-bg: #000000;
+  --color-surface: #FFFFFF;
+  --color-surface-dim: #F7F7F6;
+  --color-surface-bright: #FFFFFF;
+  --color-surface-container: #FFFFFF;
+  --color-surface-container-low: #F7F7F6;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-high: #EEEEEC;
+  --color-surface-container-highest: #E0E0DD;
+  --color-surface-variant: #F7F7F6;
+  --color-on-surface: #000000;
+  --color-on-surface-variant: #6F6F6F;
+  --color-outline: #D4D4D0;
+  --color-outline-variant: rgba(0,0,0,0.10);
+  --color-primary-container: #000000;
+  --color-on-primary-container: #FFFFFF;
+  --color-primary: #000000;
+  --color-on-primary: #FFFFFF;
+  --color-surface-tint: #000000;
+  --color-inverse-surface: #FFFFFF;
+  --color-inverse-on-surface: #000000;
+  --bg-glass-panel: rgba(255, 255, 255, 0.85);
 }
 
 body {

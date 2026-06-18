@@ -1,107 +1,109 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useCurrentAccount, useSuiClientQuery, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
-import { PACKAGE_ID, MARKETPLACE_CONFIG_ID, SLUG_TYPE, MODULE_NAME } from "../config/sui";
+import { PACKAGE_ID, MARKETPLACE_CONFIG_ID, SPIN_REGISTRY_ID, SLUG_TYPE, MODULE_NAME } from "../config/sui";
 import { soundManager } from "./SoundManager";
 import { generateSalt, computeSlugHash } from "../utils/crypto";
+import { secureStore, secureRead, encryptSalt, decryptSalt, sanitizeSlugName, checkRateLimit, safeLog, createSeededRNG } from "../utils/security";
+import { initCoins, earnCoins, spendCoins, getCoinsBalance } from "../api/coins";
 
-// Elements matching Move definitions & custom Shadow class
-export const ELEMENTS = {
-  1: { name: "FIRE", icon: "local_fire_department", color: "text-red-500", glow: "rgba(239, 68, 68, 0.45)", desc: "Aggressive attacker. explosive critical hits and burns." },
-  2: { name: "WATER", icon: "water_drop", color: "text-cyan-400", glow: "rgba(34, 211, 238, 0.45)", desc: "Defensive support. shield generator and chilling freeze." },
-  3: { name: "EARTH", icon: "landscape", color: "text-emerald-500", glow: "rgba(16, 185, 129, 0.45)", desc: "Heavy tank sentinel. massive HP and tectonic stuns." },
-  4: { name: "AIR", icon: "air", color: "text-teal-300", glow: "rgba(45, 212, 191, 0.45)", desc: "Speed assassin. lightning multi-hits and wind dodges." },
-  5: { name: "SHADOW", icon: "dark_mode", color: "text-purple-500", glow: "rgba(168, 85, 247, 0.65)", desc: "Unstable corruption class. chaotic life-steal and bursts." },
+// Elements matching Move definitions (NO shadow)
+export const ELEMENTS: Record<number, { name: string; icon: string; color: string; glow: string; desc: string }> = {
+  1: { name: "FIRE", icon: "local_fire_department", color: "text-red-500", glow: "rgba(239, 68, 68, 0.45)", desc: "Glass cannon — highest attack but lowest HP." },
+  2: { name: "WATER", icon: "water_drop", color: "text-cyan-400", glow: "rgba(34, 211, 238, 0.45)", desc: "Best overall — high HP with solid attack." },
+  3: { name: "EARTH", icon: "landscape", color: "text-emerald-500", glow: "rgba(16, 185, 129, 0.45)", desc: "Mega tank — highest HP but lowest attack." },
+  4: { name: "AIR", icon: "air", color: "text-teal-300", glow: "rgba(45, 212, 191, 0.45)", desc: "Well balanced — strong attack and decent HP." },
 };
 
-// Rarities
-export const RARITIES = {
-  1: { name: "COMMON", bonus: 0, textClass: "text-emerald-400", borderClass: "border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]", desc: "Stable cybernetic parameters." },
-  2: { name: "RARE", bonus: 5, textClass: "text-cyan-400 font-bold", borderClass: "border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.25)]", desc: "+5 Base Power boost & neon plasma outlines." },
-  3: { name: "EPIC", bonus: 10, textClass: "text-fuchsia-400 font-bold", borderClass: "border-fuchsia-500/40 shadow-[0_0_20px_rgba(217,70,239,0.3)]", desc: "Unique passive class skills & high-efficiency mutation." },
-  4: { name: "LEGENDARY", bonus: 15, textClass: "text-yellow-400 font-black tracking-wider animate-pulse", borderClass: "border-yellow-400/60 shadow-[0_0_30px_rgba(234,179,8,0.5)]", desc: "Exclusive combat finisher moves, dynamic gold headers & supreme fusions." },
+// Base stats per element (must match contract)
+export const BASE_STATS: Record<number, { hp: number; attack: number; tier: string }> = {
+  1: { hp: 85, attack: 20, tier: "Decent" },
+  2: { hp: 120, attack: 14, tier: "Very Good" },
+  3: { hp: 130, attack: 10, tier: "Decent" },
+  4: { hp: 105, attack: 16, tier: "Good" },
+};
+
+// Growth rates per element (in tenths of percent per level, matching contract)
+export const GROWTH_RATES: Record<number, { hp: number; atk: number }> = {
+  1: { hp: 10, atk: 40 },  // Fire:  +1% HP, +4% ATK
+  2: { hp: 30, atk: 20 },  // Water: +3% HP, +2% ATK
+  3: { hp: 40, atk: 10 },  // Earth: +4% HP, +1% ATK
+  4: { hp: 20, atk: 30 },  // Air:   +2% HP, +3% ATK
 };
 
 export interface Slug {
   id: string;
   name: string;
-  element: number; // 1-5
-  power: number;
-  defense: number;
-  speed: number;
-  maxHp: number;
-  currentHp: number;
-  is_ghouled: boolean; // 100% permanently transformed
+  element: number; // 1-4
+  hp: number;
+  attack: number;
   win_count: number;
-  rarity: number; // 1 to 4
-  level: number; // Level 1 to 100
-  corruption: number; // 0% to 100% Dark Water exposure
-  isFused: boolean;
-  fusionType?: string; // e.g. "Plasma Storm"
-  fusionComponent1?: string;
-  fusionComponent2?: string;
-  passiveSkill?: string;
-  finisherName?: string;
+  loss_count: number;
+  level: number;
+  sleep_until_ms: number;
   consecutiveLosses: number;
-  recoveryUntil?: number; // epoch timestamp
 }
 
 export interface PvpLobby {
   id: string;
   player1: string;
-  slug1Name: string;
-  slug1Power: number;
-  slug1Element: number;
-  slug1IsGhouled: boolean;
   wagerAmount: number; // 1, 5, or 10 SUI
   player2?: string;
-  slug2Id?: string;
+  slug1Revealed?: boolean;
+  slug2Revealed?: boolean;
+  joinTimeMs?: number;
 }
 
 interface GameStateContextProps {
   slugs: Slug[];
   activeSlugId: string | null;
   activeSlug: Slug | null;
-  fusionEnergy: number;
-  overdriveActive: boolean;
   walletMode: boolean;
   pvpLobbies: PvpLobby[];
-  activePvpLobbyOnChain: any; // Raw on-chain data of the player's active lobby
-  
+  activePvpLobbyOnChain: any;
+  pvpBattleResult: any;
+
   // Player Profile
   username: string;
   setUsername: (name: string) => void;
-  
-  // Wallet Currencies & Rank
+
+  // Economy
   darkCoins: number;
-  fusionShards: number;
-  mutationCores: number;
   cavernRank: number;
 
-  // Actions
-  mintStarterSlug: (name: string, element: number, tier: "free" | "basic" | "premium") => Promise<Slug>;
-  buyDarkWaterAndUpgrade: (slugId?: string) => Promise<{success: boolean; newCorruption: number}>;
-  triggerFullGhoul: (slugId?: string) => Promise<boolean>;
+  // Minting
+  mintStarterSlug: (name: string, tier: "free" | "premium") => Promise<Slug>;
+  mintsToday: number;
+  maxMintsPerDay: number;
+
+  // Slug Management
   levelUpSlug: () => Promise<boolean>;
-  fuseSlugs: (id1: string, id2: string) => Promise<Slug | null>;
-  openChest: (tier: "cargo" | "quantum") => Promise<{ success: boolean; coins?: number; shards?: number; cores?: number; slug?: Slug; msg: string }>;
-  executeOfflineBattle: (enemyElement: number, enemyPower: number, enemyHp: number) => Promise<{
-    success: boolean;
-    playerPower: number;
-    enemyPower: number;
-    coinsEarned: number;
-    shardsEarned: number;
-    battleLogs: string[];
-  }>;
-  createPvpLobby: (wager: number) => Promise<void>;
-  joinPvpLobby: (lobbyId: string) => Promise<{ winnerName: string; winAmount: number; coinsEarned: number; playerWins: boolean }>;
-  cancelPvpLobby: (lobbyId: string) => Promise<void>;
-  resolvePvpLobby: (lobbyId: string) => Promise<void>;
-  claimTimeout: (lobbyId: string) => Promise<void>;
+  ascendSlug: (slugId: string) => Promise<boolean>;
   setActiveSlugId: (id: string) => void;
-  activateOverdrive: () => void;
-  regenerateEnergy: () => void;
+
+  // Battle
+  executeOfflineBattle: (enemyElement: number, enemyHp: number, enemyAttack: number) => Promise<{
+    success: boolean;
+    isDraw: boolean;
+    playerHpLeft: number;
+    enemyHpLeft: number;
+    coinsEarned: number;
+    battleLogs: string[];
+    roundCount: number;
+  }>;
   awakenSlug: (slugId: string) => Promise<boolean>;
+
+  // Quantum Spin
+  quantumSpin: () => Promise<{ success: boolean; rewardType: number; amount: number; slugName?: string; slugElement?: number }>;
+
+  // PvP
+  createPvpLobby: (wager: number) => Promise<void>;
+  joinPvpLobby: (lobbyId: string) => Promise<void>;
+  revealSlug: (lobbyId: string) => Promise<void>;
+  cancelPvpLobby: (lobbyId: string) => Promise<void>;
+  claimTimeout: (lobbyId: string) => Promise<void>;
+
+  // Sound
   soundMuted: boolean;
   toggleSoundMute: () => void;
 }
@@ -109,40 +111,59 @@ interface GameStateContextProps {
 const GameStateContext = createContext<GameStateContextProps | undefined>(undefined);
 
 // Procedural name lists
-const prefixes = ["Pyr", "Aqua", "Terr", "Vortex", "Teneb", "Brim", "Cryo", "Aero", "Glim", "Obsid", "Lux", "Void"];
-const suffixes = ["core", "jaw", "strike", "tide", "stalker", "fang", "tempest", "flame", "blast", "glitch", "wraith", "shard"];
+const prefixes = ["Pyr", "Aqua", "Terr", "Vortex", "Brim", "Cryo", "Aero", "Glim", "Obsid", "Lux"];
+const suffixes = ["core", "jaw", "strike", "tide", "stalker", "fang", "tempest", "flame", "blast", "shard"];
 export const generateProceduralName = () => {
   const p = prefixes[Math.floor(Math.random() * prefixes.length)];
   const s = suffixes[Math.floor(Math.random() * suffixes.length)];
   return `${p}${s}`.toUpperCase();
 };
 
-export const parseSuiSlug = (suiObject: any): Slug => {
-  if (!suiObject || !suiObject.content || suiObject.content.dataType !== 'moveObject') return null as any;
+// Auto-name by element
+const autoName = (element: number): string => {
+  switch (element) {
+    case 1: return "INFERNO";
+    case 2: return "TIDAL";
+    case 3: return "BOULDER";
+    case 4: return "ZEPHYR";
+    default: return "SLUG";
+  }
+};
+
+export const parseSuiSlug = (suiObject: any): Slug | null => {
+  if (!suiObject || !suiObject.content || suiObject.content.dataType !== 'moveObject') return null;
   const fields = suiObject.content.fields;
-  
-  const element = parseInt(fields.element);
-  const rarity = parseInt(fields.rarity);
-  const power = parseInt(fields.power);
-  const level = parseInt(fields.level);
-  
+
   return {
     id: suiObject.objectId,
     name: fields.name,
-    element: element,
-    power: power,
-    defense: 8 + (level * 2),
-    speed: 10 + (level * 2),
-    maxHp: 100 + (level * 10),
-    currentHp: 100 + (level * 10),
-    is_ghouled: fields.is_ghouled,
-    win_count: parseInt(fields.win_count),
-    rarity: rarity,
-    level: level,
-    corruption: fields.is_ghouled ? 100 : 0,
-    isFused: fields.is_hybrid,
-    consecutiveLosses: 0,
+    element: parseInt(fields.element),
+    hp: parseInt(fields.hp),
+    attack: parseInt(fields.attack),
+    win_count: parseInt(fields.win_count || "0"),
+    loss_count: parseInt(fields.loss_count || "0"),
+    level: parseInt(fields.level),
+    sleep_until_ms: parseInt(fields.sleep_until_ms || "0"),
+    consecutiveLosses: parseInt(fields.consecutive_losses || "0"),
   };
+};
+
+// Elemental advantage check: returns 1.15 for advantage, 0.85 for disadvantage, 1.0 for neutral
+const getElementalMult = (attacker: number, defender: number): number => {
+  // Water>Fire>Earth>Air>Water
+  if (
+    (attacker === 2 && defender === 1) ||
+    (attacker === 1 && defender === 3) ||
+    (attacker === 3 && defender === 4) ||
+    (attacker === 4 && defender === 2)
+  ) return 1.15;
+  if (
+    (defender === 2 && attacker === 1) ||
+    (defender === 1 && attacker === 3) ||
+    (defender === 3 && attacker === 4) ||
+    (defender === 4 && attacker === 2)
+  ) return 0.85;
+  return 1.0;
 };
 
 export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -160,79 +181,64 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     { enabled: !!account }
   );
 
+  const [slugs, setSlugs] = useState<Slug[]>([]);
+  const [activeSlugId, setActiveSlugId] = useState<string | null>(null);
+  const [walletMode, setWalletMode] = useState<boolean>(false);
+  const [soundMuted, setSoundMuted] = useState<boolean>(false);
+  const [username, setUsername] = useState<string>("Operator");
+  const [pvpBattleResult, setPvpBattleResult] = useState<any>(null);
+
+  // Dark coins stored server-side in MongoDB (tamper-proof)
+  const [darkCoins, setDarkCoinsState] = useState<number>(350);
+
+  // Initialize dark coins from server API
   useEffect(() => {
-    if (ownedSlugsData && ownedSlugsData.data) {
-      const parsedSlugs = ownedSlugsData.data.map((obj) => parseSuiSlug(obj.data)).filter(Boolean);
-      setSlugs((prev) => {
-        return parsedSlugs.map((ps) => {
-          const existing = prev.find((p) => p.id === ps.id);
-          if (existing) {
-            return { ...ps, consecutiveLosses: existing.consecutiveLosses, recoveryUntil: existing.recoveryUntil };
-          }
-          return ps;
+    if (!account) return;
+    initCoins(account.address)
+      .then((balance) => setDarkCoinsState(balance))
+      .catch(() => {
+        // API unreachable — fallback to localStorage (read-only display)
+        secureRead("slugterra_dark_coins", account.address).then((val) => {
+          if (val !== null) setDarkCoinsState(Math.floor(Number(val)));
         });
       });
+  }, [account]);
+
+  // Helper: sync balance from server response
+  const syncBalance = useCallback((newBalance: number) => {
+    setDarkCoinsState(newBalance);
+    // Also cache in localStorage as fallback display
+    if (account) secureStore("slugterra_dark_coins", String(newBalance), account.address);
+  }, [account]);
+
+  // Legacy setDarkCoins for any remaining direct calls (local-only, non-critical)
+  const setDarkCoins = useCallback((updater: number | ((prev: number) => number)) => {
+    setDarkCoinsState((prev) => {
+      const next = Math.floor(typeof updater === "function" ? updater(prev) : updater);
+      return Math.max(0, Math.min(next, 999999));
+    });
+  }, []);
+
+  const [cavernRank] = useState<number>(1);
+  const [activePvpLobbyOnChain, setActivePvpLobbyOnChain] = useState<any>(null);
+  const [pvpLobbies, setPvpLobbies] = useState<PvpLobby[]>([]);
+
+  // Sync slugs from chain
+  useEffect(() => {
+    if (ownedSlugsData && ownedSlugsData.data) {
+      const parsedSlugs = ownedSlugsData.data
+        .map((obj) => parseSuiSlug(obj.data))
+        .filter((s): s is Slug => s !== null);
+      setSlugs(parsedSlugs);
     } else if (!account) {
       setSlugs([]);
     }
   }, [ownedSlugsData, account]);
 
-  const [slugs, setSlugs] = useState<Slug[]>([]);
-  const [activeSlugId, setActiveSlugId] = useState<string | null>(null);
-  const [fusionEnergy, setFusionEnergy] = useState<number>(100);
-  const [overdriveActive, setOverdriveActive] = useState<boolean>(false);
-  const [walletMode, setWalletMode] = useState<boolean>(false);
-  const [soundMuted, setSoundMuted] = useState<boolean>(false);
-  const [username, setUsername] = useState<string>("Operator");
-
-  // Player economies
-  const [darkCoins, setDarkCoins] = useState<number>(350);
-  const [fusionShards, setFusionShards] = useState<number>(20);
-  const [mutationCores, setMutationCores] = useState<number>(1);
-  const [cavernRank] = useState<number>(1);
-  const [activePvpLobbyOnChain, setActivePvpLobbyOnChain] = useState<any>(null);
-
-  // Matchmaking lobbies board
-  const [pvpLobbies, setPvpLobbies] = useState<PvpLobby[]>([
-    {
-      id: "lob-1",
-      player1: "0x3d7b...4fa9",
-      slug1Name: "HYPER-ELITE GLIMSHARD",
-      slug1Power: 38,
-      slug1Element: 2, // Water
-      slug1IsGhouled: false,
-      wagerAmount: 1,
-    },
-    {
-      id: "lob-2",
-      player1: "0x12a8...fe03",
-      slug1Name: "APEX PRIME VOIDFANG",
-      slug1Power: 65,
-      slug1Element: 5, // Shadow
-      slug1IsGhouled: true,
-      wagerAmount: 5,
-    }
-  ]);
-
   // Sync wallet mode
   useEffect(() => {
-    if (account) {
-      setWalletMode(true);
-    } else {
-      setWalletMode(false);
-    }
+    setWalletMode(!!account);
   }, [account]);
-
-  // Passive stamina energy regen
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setFusionEnergy((prev) => {
-        if (prev >= 100) return 100;
-        return Math.min(100, prev + 1);
-      });
-    }, 60000);
-    return () => clearInterval(timer);
-  }, [overdriveActive]);
 
   // Poll for player's active PvP lobby state from blockchain
   useEffect(() => {
@@ -248,20 +254,14 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           id: activeLobbyId,
           options: { showContent: true }
         });
-        if (obj && obj.data && obj.data.content && obj.data.content.dataType === 'moveObject') {
-          setActivePvpLobbyOnChain(obj.data.content.fields);
+        if (obj?.data?.content && obj.data.content.dataType === 'moveObject') {
+          setActivePvpLobbyOnChain((obj.data.content as any).fields);
         } else {
-          // If object is deleted (resolved or cancelled), clean up
-          localStorage.removeItem("active_pvp_salt");
           localStorage.removeItem("active_pvp_lobby");
-          localStorage.removeItem("active_pvp_slug");
           setActivePvpLobbyOnChain(null);
         }
-      } catch (e) {
-        // Assume deleted
-        localStorage.removeItem("active_pvp_salt");
+      } catch {
         localStorage.removeItem("active_pvp_lobby");
-        localStorage.removeItem("active_pvp_slug");
         setActivePvpLobbyOnChain(null);
       }
     };
@@ -279,370 +279,404 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     soundManager.setMute(nextVal);
   };
 
-  // Chest Cargo Openers
-  const openChest = async (tier: "cargo" | "quantum"): Promise<{ success: boolean; coins?: number; shards?: number; cores?: number; slug?: Slug; msg: string }> => {
-    if (tier === "cargo") {
-      if (darkCoins < 50) {
-        return { success: false, msg: "Insufficient Dark Coins. Requires 50." };
-      }
-      soundManager.playChestOpen();
-      setDarkCoins((c) => c - 50);
-
-      // Roll rewards
-      const rolledCoins = Math.floor(Math.random() * 60) + 20;
-      const rolledShards = Math.floor(Math.random() * 8) + 2;
-      setDarkCoins((c) => c + rolledCoins);
-      setFusionShards((s) => s + rolledShards);
-
-      // 30% chance to drop common/rare slug
-      if (Math.random() < 0.35) {
-        const elem = Math.floor(Math.random() * 4) + 1;
-        const newSl = await mintStarterSlug(generateProceduralName(), elem, "free");
-        return {
-          success: true,
-          coins: rolledCoins,
-          shards: rolledShards,
-          slug: newSl,
-          msg: `Cargo crate opened successfully! Unlocked ${newSl.name}!`,
-        };
-      }
-
-      return {
-        success: true,
-        coins: rolledCoins,
-        shards: rolledShards,
-        msg: `Cargo crate contains resources! Raw energy and core components retrieved.`,
-      };
-    } else {
-      // Quantum Core Cache
-      if (darkCoins < 150 && fusionShards < 10) {
-        return { success: false, msg: "Requires 150 Dark Coins or 10 Fusion Shards." };
-      }
-      soundManager.playChestOpen();
-      if (darkCoins >= 150) {
-        setDarkCoins((c) => c - 150);
-      } else {
-        setFusionShards((s) => s - 10);
-      }
-
-      const rolledShards = Math.floor(Math.random() * 20) + 8;
-      const rolledCores = Math.random() < 0.4 ? 1 : 0;
-      setFusionShards((s) => s + rolledShards);
-      if (rolledCores > 0) setMutationCores((c) => c + rolledCores);
-
-      // 60% chance to drop high-tier rare/epic/legendary slug
-      if (Math.random() < 0.65) {
-        const elem = Math.floor(Math.random() * 5) + 1; // can be shadow!
-        const tierRoll = Math.random() < 0.15 ? "premium" : "basic";
-        const newSl = await mintStarterSlug(generateProceduralName(), elem, tierRoll as any);
-        return {
-          success: true,
-          shards: rolledShards,
-          cores: rolledCores,
-          slug: newSl,
-          msg: `Quantum Cache unlocked! High-frequency materials and a specialized ${newSl.name} slug materializer secured!`,
-        };
-      }
-
-      return {
-        success: true,
-        shards: rolledShards,
-        cores: rolledCores,
-        msg: `High-frequency reactor core data decrypted! Quantum shards and fusions assets stored.`,
-      };
-    }
+  // ─── Mint Limit (5 per day) with HMAC integrity ───
+  const MAX_MINTS_PER_DAY = 5;
+  const getTodayKey = () => `slugterra_mints_${new Date().toISOString().slice(0, 10)}`;
+  const getMintsToday = async (): Promise<number> => {
+    if (!account) return 0;
+    const val = await secureRead(getTodayKey(), account.address);
+    return val ? parseInt(val) : 0;
   };
+  const incrementMints = async () => {
+    if (!account) return;
+    const current = await getMintsToday();
+    await secureStore(getTodayKey(), String(current + 1), account.address);
+  };
+  const [mintsToday, setMintsToday] = useState(0);
 
-  // Mint canisters
-  const mintStarterSlug = async (name: string, element: number, tier: "free" | "basic" | "premium"): Promise<Slug> => {
+  // Load mint count on mount
+  useEffect(() => {
+    if (account) {
+      getMintsToday().then(setMintsToday);
+    }
+  }, [account]);
+
+  // ─── Minting ───
+  const mintStarterSlug = async (name: string, tier: "free" | "premium"): Promise<Slug> => {
     if (!account) throw new Error("Connect your wallet!");
+    const currentMints = await getMintsToday();
+    if (currentMints >= MAX_MINTS_PER_DAY) throw new Error(`Daily mint limit reached (${MAX_MINTS_PER_DAY}/day). Try again tomorrow!`);
+    if (!checkRateLimit('mint', 3000)) throw new Error('Please wait before minting again.');
     const tx = new Transaction();
-    const finalName = name.trim().toUpperCase() || generateProceduralName();
-    
+    const finalName = sanitizeSlugName(name) || "";  // Sanitized + empty = auto-name on-chain
+
     if (tier === "premium") {
-      const [coin] = tx.splitCoins(tx.gas, [1000000000]); // 1 SUI
+      const [coin] = tx.splitCoins(tx.gas, [500_000_000]); // 0.5 SUI
       tx.moveCall({
         target: `${PACKAGE_ID}::${MODULE_NAME}::premium_mint`,
-        arguments: [tx.object(MARKETPLACE_CONFIG_ID), tx.pure.string(finalName), tx.pure.u8(element), tx.object("0x8"), coin],
+        arguments: [tx.object(MARKETPLACE_CONFIG_ID), tx.pure.string(finalName), tx.object("0x8"), coin],
       });
     } else {
       tx.moveCall({
         target: `${PACKAGE_ID}::${MODULE_NAME}::free_mint`,
-        arguments: [tx.pure.string(finalName), tx.pure.u8(element), tx.object("0x8")],
+        arguments: [tx.pure.string(finalName), tx.object("0x8")],
       });
     }
 
     const response = await signAndExecute({ transaction: tx });
-    await suiClient.waitForTransaction({ digest: response.digest });
+    const txResult = await suiClient.waitForTransaction({ digest: response.digest, options: { showEvents: true, showObjectChanges: true } });
+
+    if (tier === "premium" && account) {
+      try {
+        const newBal = await earnCoins(account.address, 100, 'premium_mint_bonus');
+        syncBalance(newBal);
+      } catch { setDarkCoins((c) => c + 100); }
+    }
+
     refetchSlugs();
-    
-    return { id: "pending", name: finalName, element, power: 10, defense: 10, speed: 10, maxHp: 100, currentHp: 100, is_ghouled: false, win_count: 0, rarity: 1, level: 1, corruption: 0, isFused: false, consecutiveLosses: 0 } as Slug;
-  };
+    await incrementMints();
+    const mints = await getMintsToday();
+    setMintsToday(mints);
 
-  // Inject Dark Water Corruption upgrade (Costs 1.0 SUI)
-  const buyDarkWaterAndUpgrade = async (slugId?: string): Promise<{success: boolean; newCorruption: number}> => {
-    const targetId = slugId || activeSlugId;
-    if (!targetId || !account) return {success: false, newCorruption: 0};
+    // Find the newly created slug object from transaction results
+    const createdSlug = txResult.objectChanges?.find(
+      (change: any) => change.type === 'created' && change.objectType?.includes('::game::Slug')
+    );
 
-    soundManager.playBubble();
-    const tx = new Transaction();
-    const [coin] = tx.splitCoins(tx.gas, [1000000000]); // 1 SUI
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::buy_dark_water_and_upgrade`,
-      arguments: [tx.object(MARKETPLACE_CONFIG_ID), tx.object(targetId), coin],
-    });
-
-    try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
-      refetchSlugs();
-      soundManager.playWarning();
-      return {success: true, newCorruption: 100};
-    } catch (e) {
-      console.error(e);
-      return {success: false, newCorruption: 0};
+    if (createdSlug && 'objectId' in createdSlug) {
+      // Fetch the actual slug data from chain
+      try {
+        const slugObj = await suiClient.getObject({
+          id: (createdSlug as any).objectId,
+          options: { showContent: true },
+        });
+        const parsed = parseSuiSlug(slugObj.data as any);
+        if (parsed) return parsed;
+      } catch (e) {
+        console.warn("Could not fetch minted slug details, using fallback", e);
+      }
     }
+
+    // Fallback if we can't read the created object
+    return {
+      id: "pending", name: finalName || "NEW SLUG", element: 1,
+      hp: 85, attack: 20, win_count: 0, loss_count: 0, level: 1,
+      sleep_until_ms: 0, consecutiveLosses: 0,
+    };
   };
 
-  // Perform full ghoul transformation at 100% (Merged into buyDarkWaterAndUpgrade on-chain)
-  const triggerFullGhoul = async (): Promise<boolean> => {
-    return false;
-  };
-
-  // Merge compatible elements inside the Fusion containment grids
-  const fuseSlugs = async (id1: string, id2: string): Promise<Slug | null> => {
-    if (!account) return null;
-    soundManager.playChestOpen();
-    const tx = new Transaction();
-    
-    // In our backend, hybrid_name is passed as a string.
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::fuse_slugs`,
-      arguments: [tx.object(id1), tx.object(id2), tx.pure.string("HYBRID PRIME")],
-    });
-    
-    try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
-      refetchSlugs();
-      
-      // Temporary stub to prevent UI crash while refetch completes
-      return { id: "pending", name: "HYBRID PRIME", element: 1, power: 50, defense: 50, speed: 50, maxHp: 500, currentHp: 500, is_ghouled: false, win_count: 0, rarity: 4, level: 1, corruption: 0, isFused: true, consecutiveLosses: 0 } as Slug;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  };
-
-  // RPG Level Up Slug via PTB
+  // ─── Level Up (server-validated coin spend) ───
   const levelUpSlug = async (): Promise<boolean> => {
     if (!activeSlug || !account) return false;
-    
+    if (!checkRateLimit('levelUp', 1000)) return false;
+
+    const cost = activeSlug.level * 10;
+    if (darkCoins < cost) return false;
+    if (activeSlug.level >= 50) return false;
+
+    // Spend coins via server API (validates cost = level * 10)
+    try {
+      const newBal = await spendCoins(account.address, cost, 'level_up', activeSlug.level);
+      syncBalance(newBal);
+    } catch (err) {
+      safeLog('LevelUp spend failed', err);
+      // Re-sync balance from server in case of mismatch
+      try { syncBalance(await getCoinsBalance(account.address)); } catch {}
+      return false;
+    }
+
     soundManager.playLevelUp();
+
+    // Client-side stat calculation (matches contract formula)
+    const growth = GROWTH_RATES[activeSlug.element] || { hp: 10, atk: 10 };
+    const hpGain = Math.max(1, Math.floor(activeSlug.hp * growth.hp / 1000));
+    const atkGain = Math.max(1, Math.floor(activeSlug.attack * growth.atk / 1000));
+
+    setSlugs((prev) =>
+      prev.map((s) =>
+        s.id === activeSlug.id
+          ? { ...s, level: s.level + 1, hp: s.hp + hpGain, attack: s.attack + atkGain }
+          : s
+      )
+    );
+    return true;
+  };
+
+  // ─── Ascend (burn slug) ───
+  const ascendSlug = async (slugId: string): Promise<boolean> => {
+    if (!account) return false;
+    if (!checkRateLimit('ascend', 3000)) return false;
+
+    // Re-fetch slug data from chain to prevent client-side manipulation
+    let slug: Slug | null | undefined;
+    try {
+      const onChainObj = await suiClient.getObject({ id: slugId, options: { showContent: true } });
+      if (onChainObj?.data) {
+        slug = parseSuiSlug(onChainObj as any);
+      }
+    } catch {
+      slug = slugs.find((s) => s.id === slugId);
+    }
+    if (!slug) return false;
+
     const tx = new Transaction();
     tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::level_up`,
-      arguments: [tx.object(activeSlug.id), tx.object("0x6")],
+      target: `${PACKAGE_ID}::${MODULE_NAME}::ascend`,
+      arguments: [tx.object(slugId)],
     });
 
     try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
+      soundManager.playLaunch();
+      await signAndExecute({ transaction: tx });
+
+      // Tier-based refund
+      const tierCoins: Record<string, number> = { 'Very Good': 50, 'Good': 25, 'Decent': 5 };
+      const baseTier = BASE_STATS[slug.element]?.tier || 'Decent';
+      const baseRefund = tierCoins[baseTier] || 5;
+
+      // 20% of total upgrade coins (if level > 2)
+      const totalSpent = Array.from({ length: slug.level - 1 }, (_, i) => (i + 1) * 10).reduce((a, b) => a + b, 0);
+      const upgradeRefund = slug.level > 2 ? Math.floor(totalSpent * 0.20) : 0;
+
+      try {
+        const newBal = await earnCoins(account.address, baseRefund + upgradeRefund, 'ascend_refund');
+        syncBalance(newBal);
+      } catch { setDarkCoins((c) => c + baseRefund + upgradeRefund); }
+
+      if (activeSlugId === slugId) setActiveSlugId(null);
       refetchSlugs();
       return true;
     } catch (e) {
-      console.error(e);
+      safeLog("Ascend", e);
       return false;
     }
   };
 
-  // Overhauled battle algorithm applying element attributes and playstyles
+  // ─── Quantum Spin ───
+  const quantumSpin = async (): Promise<{ success: boolean; rewardType: number; amount: number; slugName?: string; slugElement?: number }> => {
+    if (!account) return { success: false, rewardType: 0, amount: 0 };
+    if (!checkRateLimit('spin', 3000)) return { success: false, rewardType: 0, amount: 0 };
+
+    soundManager.playBubble();
+    const tx = new Transaction();
+    const [coin] = tx.splitCoins(tx.gas, [50_000_000]);
+
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::quantum_spin`,
+      arguments: [
+        tx.object(MARKETPLACE_CONFIG_ID),
+        tx.object(SPIN_REGISTRY_ID),
+        tx.object("0x6"),
+        tx.object("0x8"),
+        coin,
+      ],
+    });
+
+    try {
+      const response = await signAndExecute({ transaction: tx });
+      const txDetails = await suiClient.waitForTransaction({ digest: response.digest, options: { showEvents: true } });
+      refetchSlugs();
+
+      let rewardType = 0;
+      let amount = 0;
+      let slugName = "";
+      let slugElement = 1;
+
+      if (txDetails.events && txDetails.events.length > 0) {
+        const spinEvent = txDetails.events.find((e: any) => e.type.includes('SpinRewardEvent'));
+        if (spinEvent && spinEvent.parsedJson) {
+          const data = spinEvent.parsedJson as any;
+          rewardType = Number(data.reward_type);
+          amount = Number(data.amount);
+
+          if (rewardType === 5) {
+            try {
+              const newBal = await earnCoins(account.address, amount, 'spin_coins');
+              syncBalance(newBal);
+            } catch { setDarkCoins((prev) => prev + amount); }
+          } else if (rewardType <= 4) {
+            // 1=Water, 2=Air, 3=Fire, 4=Earth
+            const elementMap: Record<number, { name: string; el: number }> = {
+              1: { name: "QUANTUM TIDAL", el: 2 },
+              2: { name: "QUANTUM ZEPHYR", el: 4 },
+              3: { name: "QUANTUM INFERNO", el: 1 },
+              4: { name: "QUANTUM BOULDER", el: 3 },
+            };
+            const reward = elementMap[rewardType];
+            if (reward) { slugName = reward.name; slugElement = reward.el; }
+          }
+        }
+      }
+      return { success: true, rewardType, amount, slugName, slugElement };
+    } catch (e) {
+      safeLog("QuantumSpin", e);
+      return { success: false, rewardType: 0, amount: 0 };
+    }
+  };
+
+  // ─── PvE Battle (HP-based rounds) ───
   const executeOfflineBattle = async (
     enemyElement: number,
-    enemyPower: number,
-    enemyHp: number
+    enemyHp: number,
+    enemyAttack: number
   ): Promise<{
     success: boolean;
-    playerPower: number;
-    enemyPower: number;
+    isDraw: boolean;
+    playerHpLeft: number;
+    enemyHpLeft: number;
     coinsEarned: number;
-    shardsEarned: number;
     battleLogs: string[];
+    roundCount: number;
   }> => {
     if (!activeSlug) {
-      return { success: false, playerPower: 0, enemyPower, coinsEarned: 0, shardsEarned: 0, battleLogs: [] };
+      return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: [], roundCount: 0 };
     }
-    if (fusionEnergy < 12) {
-      return { success: false, playerPower: 0, enemyPower, coinsEarned: 0, shardsEarned: 0, battleLogs: ["[0.0s] INSUFFICIENT FUSION ENERGY. Recharge required before combat deployment."] };
+    if (!checkRateLimit('pve_battle', 2000)) {
+      return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ['[0.0s] Please wait before battling again.'], roundCount: 0 };
+    }
+
+    // Check if slug is sleeping
+    if (activeSlug.sleep_until_ms > Date.now()) {
+      return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ["[0.0s] SLUG IS SLEEPING. Wait for recovery."], roundCount: 0 };
     }
 
     soundManager.playLaunch();
-    setFusionEnergy((prev) => Math.max(0, prev - 12));
-
     const logs: string[] = [];
-    logs.push(`[0.0s] Blaster bay loaded. Launching ${activeSlug.name}! Target HP is ${enemyHp} units.`);
+    logs.push(`[0.0s] Deploying ${activeSlug.name} (${ELEMENTS[activeSlug.element]?.name || "?"})!`);
 
-    // Extract stats
-    let pPower = activeSlug.power;
-    let pDef = activeSlug.defense;
-    let pSpd = activeSlug.speed;
-    let pMaxHp = activeSlug.maxHp;
-    
-    let ePower = enemyPower;
-    let eSpd = Math.floor(enemyPower * 0.5);
+    let pHp = activeSlug.hp;
+    let eHp = enemyHp;
+    const pAtk = activeSlug.attack;
+    const eAtk = enemyAttack;
 
-    // Apply Elemental playstyles & counters
-    logs.push(`[0.3s] Elemental scan: Player Core is ${ELEMENTS[activeSlug.element as keyof typeof ELEMENTS].name}. Enemy is ${ELEMENTS[enemyElement as keyof typeof ELEMENTS].name}.`);
+    const pMult = getElementalMult(activeSlug.element, enemyElement);
+    const eMult = getElementalMult(enemyElement, activeSlug.element);
 
-    // Water > Fire > Air > Earth > Water
-    const pEl = activeSlug.element;
-    const eEl = enemyElement;
-    if ((pEl === 2 && eEl === 1) || (pEl === 1 && eEl === 4) || (pEl === 4 && eEl === 3) || (pEl === 3 && eEl === 2)) {
-      pPower += 6;
-      logs.push(`[0.6s] TACTICAL ADVANTAGE! Elemental counters active: Player power +6.`);
-    } else if ((eEl === 2 && pEl === 1) || (eEl === 1 && pEl === 4) || (eEl === 4 && pEl === 3) || (eEl === 3 && pEl === 2)) {
-      ePower += 6;
-      logs.push(`[0.6s] WARNING: Target countering active core. Enemy power +6.`);
+    if (pMult > 1) logs.push(`[0.2s] ELEMENTAL ADVANTAGE! +15% damage.`);
+    else if (pMult < 1) logs.push(`[0.2s] ELEMENTAL DISADVANTAGE! -15% damage.`);
+
+    let round = 0;
+    while (round < 10 && pHp > 0 && eHp > 0) {
+      round++;
+      const pVariance = 0.95 + Math.random() * 0.10;
+      const eVariance = 0.95 + Math.random() * 0.10;
+
+      const pDmg = Math.floor(pAtk * pMult * pVariance);
+      const eDmg = Math.floor(eAtk * eMult * eVariance);
+
+      eHp = Math.max(0, eHp - pDmg);
+      pHp = Math.max(0, pHp - eDmg);
+
+      logs.push(`[R${round}] You deal ${pDmg} → Enemy HP: ${eHp} | Enemy deals ${eDmg} → Your HP: ${pHp}`);
     }
 
-    // Ghouled/Shadow elements dominate
-    if (activeSlug.is_ghouled || activeSlug.element === 5) {
-      pPower += 8;
-      logs.push(`[0.8s] Void shadow waves bypass basic counters! +8 Corruption damage.`);
-    }
+    let isDraw = pHp === 0 && eHp === 0;
+    let success = pHp > 0 && eHp <= 0;
 
-    // Apply special visual playstyles
-    let burnDmg = 0;
-    let freezeChance = false;
-    let hasShield = false;
-    let stunTrigger = false;
-    let dodgeTrigger = false;
-
-    if (pEl === 1) { // FIRE
-      if (Math.random() < 0.45) { // higher crits
-        pPower = Math.floor(pPower * 1.5);
-        logs.push(`[1.0s] CRITICAL EXPLOSION! Burning impact ignited!`);
+    // Tiebreaker after 10 rounds: whoever has more remaining HP wins. If tied, higher ATK wins.
+    if (pHp > 0 && eHp > 0) {
+      logs.push(`[R10] TIME UP! Tiebreaker — Your HP: ${pHp} vs Enemy HP: ${eHp}`);
+      if (pHp > eHp) {
+        success = true;
+        logs.push(`[END] VICTORY by HP advantage! (+${pHp - eHp} HP difference)`);
+      } else if (eHp > pHp) {
+        success = false;
+        logs.push(`[END] DEFEAT by HP advantage. Enemy had +${eHp - pHp} more HP.`);
+      } else {
+        // HP tied — compare ATK
+        if (pAtk > enemyAttack) {
+          success = true;
+          logs.push(`[END] VICTORY by ATK tiebreak! (${pAtk} vs ${enemyAttack})`);
+        } else if (enemyAttack > pAtk) {
+          success = false;
+          logs.push(`[END] DEFEAT by ATK tiebreak. (${pAtk} vs ${enemyAttack})`);
+        } else {
+          isDraw = true;
+          logs.push(`[END] DRAW! Both HP and ATK are identical.`);
+        }
       }
-      burnDmg = 8;
-    } else if (pEl === 2) { // WATER
-      hasShield = true;
-      pDef += 5;
-      if (Math.random() < 0.25) freezeChance = true;
-    } else if (pEl === 3) { // EARTH
-      pDef += 12;
-      pMaxHp += 30;
-      if (Math.random() < 0.35) stunTrigger = true;
-    } else if (pEl === 4) { // AIR
-      pSpd += 15;
-      if (Math.random() < 0.3) dodgeTrigger = true;
-    } else if (pEl === 5) { // SHADOW
-      if (Math.random() < 0.2) {
-        logs.push(`[1.1s] Dark Water Surge! Instability backfire causes self-damage.`);
-        pMaxHp -= 15;
-      }
+    } else {
+      if (isDraw) logs.push(`[END] DRAW! Both slugs knocked out simultaneously.`);
+      else if (success) logs.push(`[END] VICTORY! ${activeSlug.name} survives with ${pHp} HP!`);
+      else logs.push(`[END] DEFEAT! ${activeSlug.name} was knocked out.`);
     }
 
-    // Combat round loop simulations
-    logs.push(`[1.3s] Cannons locked. Emulating dual impact collision...`);
-    
-    // Process round values
-    let playerScore = pPower + pSpd + Math.floor(pDef * 0.5) + Math.floor(Math.random() * 8);
-    let enemyScore = ePower + eSpd + Math.floor(Math.random() * 8);
+    // Rewards: base 20-40 coins, scaled by +15% per level, CAPPED at 200
+    const battleSeed = `${activeSlug.id}_${Date.now()}_${round}`;
+    const seededRng = createSeededRNG(battleSeed);
+    const levelScale = 1 + 0.15 * (activeSlug.level - 1);
+    const baseCoins = 20 + Math.floor(seededRng() * 21); // 20-40 deterministic
+    const coinsEarned = success ? Math.min(200, Math.floor(baseCoins * levelScale)) : 0;
 
-    if (dodgeTrigger) {
-      enemyScore = Math.floor(enemyScore * 0.5);
-      logs.push(`[1.5s] Evasive wind trail maneuver! Dodged 50% target impact.`);
-    }
-    if (stunTrigger) {
-      enemyScore -= 12;
-      logs.push(`[1.5s] Tectonic Obsidian Stun! Enemy power reduced.`);
-    }
-    if (hasShield) {
-      playerScore += 10;
-      logs.push(`[1.5s] Hydration cellular shield absorb active (+10 shield score).`);
-    }
-    if (freezeChance) {
-      enemyScore = Math.floor(enemyScore * 0.7);
-      logs.push(`[1.6s] Freezing chill freeze! Enemy velocity decreased.`);
-    }
-    if (burnDmg > 0) {
-      enemyScore -= burnDmg;
-      logs.push(`[1.6s] Melting burn DOT ticks! -${burnDmg} target points.`);
-    }
+    // Sleep penalty for losses
+    if (!success && !isDraw) {
+      const nextLosses = (activeSlug.consecutiveLosses || 0) + 1;
+      let sleepMs = 300_000; // 5 min
+      if (nextLosses === 2) sleepMs = 900_000; // 15 min
+      else if (nextLosses >= 3) sleepMs = 1_800_000; // 30 min
 
-    // Volatile corruption surge calculations
-    if (activeSlug.corruption >= 50) {
-      const rollSurge = Math.random();
-      if (rollSurge < 0.3) {
-        playerScore = Math.floor(playerScore * 2);
-        logs.push(`[1.7s] ⚠️ UNSTABLE QUANTUM SURGE! Glitch critical deals double damage!`);
-      } else if (rollSurge < 0.45) {
-        playerScore = Math.floor(playerScore * 0.7);
-        logs.push(`[1.7s] ⚠️ REACTOR GLITCH OVERFLOW! Stability failure dropped output by 30%.`);
-      }
+      setSlugs((prev) =>
+        prev.map((s) =>
+          s.id === activeSlug.id
+            ? { ...s, consecutiveLosses: nextLosses, sleep_until_ms: Date.now() + sleepMs }
+            : s
+        )
+      );
+    } else if (success) {
+      setSlugs((prev) =>
+        prev.map((s) =>
+          s.id === activeSlug.id ? { ...s, consecutiveLosses: 0 } : s
+        )
+      );
     }
-
-    let success = playerScore >= enemyScore;
-    
-    // Hidden 25% automatic loss condition
-    if (Math.random() < 0.25) {
-      success = false;
-      logs.push(`[1.8s] CRITICAL MALFUNCTION! Power delivery failed. Unexplained failure.`);
-    }
-    
-    // Combat logs result
-    logs.push(`[2.0s] Emulated Scores: Player ${playerScore} vs Boss ${enemyScore}.`);
-
-    const difficultyRatio = Math.max(0.5, Math.min(2.0, enemyPower / (activeSlug.power || 1)));
-    const coinsEarned = success ? Math.floor(15 * difficultyRatio) : Math.floor(5 * difficultyRatio);
-    const shardsEarned = success ? Math.max(1, Math.floor(2 * difficultyRatio)) : 0;
 
     setTimeout(() => {
-      if (success) {
-        soundManager.playVictory();
-      } else {
-        soundManager.playDefeat();
-      }
+      if (success) soundManager.playVictory();
+      else soundManager.playDefeat();
     }, 1500);
 
-    // Update player and slug progression
-    setSlugs((prev) =>
-      prev.map((s) => {
-        if (s.id === activeSlug.id) {
-          const nextLosses = success ? 0 : (s.consecutiveLosses || 0) + 1;
-          let sleepDuration = 0;
-          if (!success) {
-            if (nextLosses === 1) sleepDuration = 5 * 60 * 1000;
-            else if (nextLosses === 2) sleepDuration = 10 * 60 * 1000;
-            else sleepDuration = 30 * 60 * 1000;
-          }
-          return {
-            ...s,
-            win_count: success ? s.win_count + 1 : s.win_count,
-            consecutiveLosses: nextLosses,
-            recoveryUntil: !success ? Date.now() + sleepDuration : undefined,
-          };
-        }
-        return s;
-      })
-    );
+    if (success && account) {
+      try {
+        const newBal = await earnCoins(account.address, coinsEarned, 'pve_win');
+        syncBalance(newBal);
+      } catch { setDarkCoins((prev) => prev + coinsEarned); }
+    }
 
-    // Award currencies
-    setDarkCoins((c) => c + coinsEarned);
-    setFusionShards((s) => s + shardsEarned);
-    
-    // Player Rank progression
-    return {
-      success,
-      playerPower: playerScore,
-      enemyPower: enemyScore,
-      coinsEarned,
-      shardsEarned,
-      battleLogs: logs,
-    };
+    return { success, isDraw, playerHpLeft: pHp, enemyHpLeft: eHp, coinsEarned, battleLogs: logs, roundCount: round };
   };
 
-  // Create wager matchmaker lobbies
+  // ─── Awaken Slug ───
+  const awakenSlug = async (slugId: string): Promise<boolean> => {
+    const targetSlug = slugs.find((s) => s.id === slugId);
+    if (!targetSlug) return false;
+
+    const remainingMs = (targetSlug.sleep_until_ms || 0) - Date.now();
+    if (remainingMs <= 0) {
+      setSlugs((prev) => prev.map((s) => s.id === slugId ? { ...s, sleep_until_ms: 0, consecutiveLosses: 0 } : s));
+      return true;
+    }
+
+    const minutesLeft = Math.max(1, Math.ceil(remainingMs / 60000));
+    const coinCost = minutesLeft * 5;
+
+    if (darkCoins < coinCost) return false;
+
+    // Spend coins via server API
+    if (account) {
+      try {
+        const newBal = await spendCoins(account.address, coinCost, 'awaken');
+        syncBalance(newBal);
+      } catch {
+        try { syncBalance(await getCoinsBalance(account.address)); } catch {}
+        return false;
+      }
+    }
+    soundManager.playChestOpen();
+    setSlugs((prev) => prev.map((s) => s.id === slugId ? { ...s, sleep_until_ms: 0, consecutiveLosses: 0 } : s));
+    return true;
+  };
+
+  // ─── PvP: Create Lobby ───
   const createPvpLobby = async (wager: number) => {
     if (!activeSlug || !account) return;
     soundManager.playBubble();
@@ -661,30 +695,93 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       const response = await signAndExecute({ transaction: tx });
       const txnResult = await suiClient.waitForTransaction({ digest: response.digest, options: { showEffects: true } });
-      
+
       const createdObj = txnResult.effects?.created?.[0]?.reference?.objectId;
       const lobbyId = createdObj || `lob-${Date.now()}`;
-      
-      localStorage.setItem("active_pvp_salt", Array.from(salt).join(","));
+
+      localStorage.setItem(`pvp_salt_${lobbyId}`, await encryptSalt(salt, account.address));
       localStorage.setItem("active_pvp_lobby", lobbyId);
-      localStorage.setItem("active_pvp_slug", activeSlug.id);
-      
+      localStorage.setItem(`pvp_slug_${lobbyId}`, activeSlug.id);
+
       const newLobby: PvpLobby = {
         id: lobbyId,
-        player1: username,
-        slug1Name: activeSlug.name,
-        slug1Power: activeSlug.power,
-        slug1Element: activeSlug.element,
-        slug1IsGhouled: activeSlug.is_ghouled,
+        player1: account.address,
         wagerAmount: wager,
       };
       setPvpLobbies((prev) => [newLobby, ...prev]);
     } catch (e) {
-      console.error(e);
+      safeLog("CreatePvpLobby", e);
     }
   };
 
-  // Cancel matchmaker lobbies
+  // ─── PvP: Join Lobby (double-blind — P2 also commits hash) ───
+  const joinPvpLobby = async (lobbyId: string) => {
+    if (!activeSlug || !account) return;
+    soundManager.playLaunch();
+
+    // Generate P2's salt and hash
+    const salt = generateSalt();
+    const slugHash = computeSlugHash(activeSlug.id, salt);
+
+    // Get lobby wager amount from on-chain
+    const lobbyObj = await suiClient.getObject({ id: lobbyId, options: { showContent: true } });
+    const lobbyFields = (lobbyObj?.data?.content as any)?.fields;
+    const wagerAmount = parseInt(lobbyFields?.wager_amount || "1000000000");
+
+    const tx = new Transaction();
+    const [coin] = tx.splitCoins(tx.gas, [wagerAmount]);
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::join_pvp_lobby`,
+      arguments: [tx.object(lobbyId), tx.pure.vector('u8', Array.from(slugHash)), tx.object("0x6"), coin],
+    });
+
+    try {
+      await signAndExecute({ transaction: tx });
+      localStorage.setItem(`pvp_salt_${lobbyId}`, await encryptSalt(salt, account.address));
+      localStorage.setItem("active_pvp_lobby", lobbyId);
+      localStorage.setItem(`pvp_slug_${lobbyId}`, activeSlug.id);
+    } catch (e) {
+      safeLog("JoinPvpLobby", e);
+      throw e;
+    }
+  };
+
+  // ─── PvP: Reveal Slug (works for both P1 and P2) ───
+  const revealSlug = async (lobbyId: string) => {
+    if (!account) return;
+
+    const storedSalt = localStorage.getItem(`pvp_salt_${lobbyId}`) || await secureRead(`pvp_salt_${lobbyId}`, account.address);
+    const slugId = localStorage.getItem(`pvp_slug_${lobbyId}`);
+    if (!storedSalt || !slugId) return;
+
+    let saltArray: Uint8Array;
+    if (account) {
+      saltArray = await decryptSalt(storedSalt, account.address);
+    } else {
+      saltArray = new Uint8Array(storedSalt.split(",").map(Number));
+    }
+
+    // Determine if caller is P1 or P2
+    const lobbyObj = await suiClient.getObject({ id: lobbyId, options: { showContent: true } });
+    const lobbyFields = (lobbyObj?.data?.content as any)?.fields;
+    const isP1 = lobbyFields?.player1 === account.address;
+    const revealFn = isP1 ? "reveal_slug_p1" : "reveal_slug_p2";
+
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::${revealFn}`,
+      arguments: [tx.object(lobbyId), tx.object(slugId), tx.pure.vector('u8', Array.from(saltArray)), tx.object("0x6")],
+    });
+
+    try {
+      await signAndExecute({ transaction: tx });
+      soundManager.playLaunch();
+    } catch (e) {
+      safeLog("RevealSlug", e);
+    }
+  };
+
+  // ─── PvP: Cancel Lobby ───
   const cancelPvpLobby = async (lobbyId: string) => {
     soundManager.playLaunch();
     const tx = new Transaction();
@@ -694,72 +791,17 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
 
     try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
+      await signAndExecute({ transaction: tx });
       setPvpLobbies((prev) => prev.filter((l) => l.id !== lobbyId));
-      localStorage.removeItem("active_pvp_salt");
+      localStorage.removeItem(`pvp_salt_${lobbyId}`);
+      localStorage.removeItem(`pvp_slug_${lobbyId}`);
       localStorage.removeItem("active_pvp_lobby");
-      localStorage.removeItem("active_pvp_slug");
     } catch (e) {
-      console.error(e);
+      safeLog("CancelPvpLobby", e);
     }
   };
 
-  // Join PVP wager duel
-  const joinPvpLobby = async (lobbyId: string) => {
-    const lobby = pvpLobbies.find((l) => l.id === lobbyId);
-    if (!lobby || !activeSlug || !account) {
-      throw new Error("Lobby or active slug missing");
-    }
-    soundManager.playLaunch();
-    
-    const tx = new Transaction();
-    const wagerAmount = lobby.wagerAmount * 1_000_000_000;
-    const [coin] = tx.splitCoins(tx.gas, [wagerAmount]);
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::join_pvp_lobby`,
-      arguments: [tx.object(lobbyId), tx.object(activeSlug.id), tx.object("0x6"), coin], // 0x6 is SUI Clock
-    });
-
-    try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
-      return { winnerName: "Pending Reveal...", winAmount: 0, coinsEarned: 0, playerWins: false };
-    } catch (e) {
-      console.error(e);
-      throw e;
-    }
-  };
-
-  // Resolve PVP wager duel (P1 Reveals)
-  const resolvePvpLobby = async (lobbyId: string) => {
-    const saltString = localStorage.getItem("active_pvp_salt");
-    const slugId = localStorage.getItem("active_pvp_slug");
-    if (!saltString || !slugId || !account) return;
-
-    soundManager.playVictory();
-    const saltArray = new Uint8Array(saltString.split(",").map(Number));
-
-    const tx = new Transaction();
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::resolve_pvp_lobby`,
-      arguments: [tx.object(lobbyId), tx.object(slugId), tx.pure.vector('u8', Array.from(saltArray))],
-    });
-
-    try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
-      
-      setPvpLobbies((prev) => prev.filter((l) => l.id !== lobbyId));
-      localStorage.removeItem("active_pvp_salt");
-      localStorage.removeItem("active_pvp_lobby");
-      localStorage.removeItem("active_pvp_slug");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Claim Timeout (P2 claims pot if P1 ghosts)
+  // ─── PvP: Claim Timeout ───
   const claimTimeout = async (lobbyId: string) => {
     if (!account) return;
     const tx = new Transaction();
@@ -768,60 +810,14 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       arguments: [tx.object(lobbyId), tx.object("0x6")],
     });
     try {
-      const response = await signAndExecute({ transaction: tx });
-      await suiClient.waitForTransaction({ digest: response.digest });
+      await signAndExecute({ transaction: tx });
       setPvpLobbies((prev) => prev.filter((l) => l.id !== lobbyId));
+      localStorage.removeItem(`pvp_salt_${lobbyId}`);
+      localStorage.removeItem(`pvp_slug_${lobbyId}`);
+      localStorage.removeItem("active_pvp_lobby");
     } catch (e) {
-      console.error(e);
+      safeLog("ClaimTimeout", e);
     }
-  };
-
-  const activateOverdrive = () => {
-    setOverdriveActive(true);
-    soundManager.playWarning();
-    setTimeout(() => {
-      setOverdriveActive(false);
-    }, 45000);
-  };
-
-  const regenerateEnergy = () => {
-    setFusionEnergy(100);
-    soundManager.playChestOpen();
-  };
-
-  const awakenSlug = async (slugId: string): Promise<boolean> => {
-    const targetSlug = slugs.find((s) => s.id === slugId);
-    if (!targetSlug || !targetSlug.recoveryUntil) return false;
-    
-    const remainingTimeMs = targetSlug.recoveryUntil - Date.now();
-    if (remainingTimeMs <= 0) {
-      setSlugs((prev) =>
-        prev.map((s) =>
-          s.id === slugId
-            ? { ...s, recoveryUntil: undefined, consecutiveLosses: 0 }
-            : s
-        )
-      );
-      return true;
-    }
-    
-    const minutesLeft = Math.max(1, Math.ceil(remainingTimeMs / (60 * 1000)));
-    const coinCost = minutesLeft * 5; // 5 coins per minute
-    
-    if (darkCoins < coinCost) {
-      return false;
-    }
-    
-    soundManager.playChestOpen();
-    setDarkCoins((c) => c - coinCost);
-    setSlugs((prev) =>
-      prev.map((s) =>
-        s.id === slugId
-          ? { ...s, recoveryUntil: undefined, consecutiveLosses: 0 }
-          : s
-      )
-    );
-    return true;
   };
 
   return (
@@ -830,34 +826,29 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         slugs,
         activeSlugId,
         activeSlug,
-        fusionEnergy,
-        overdriveActive,
         walletMode,
         pvpLobbies,
         activePvpLobbyOnChain,
+        pvpBattleResult,
         username,
         setUsername,
-        
+
         darkCoins,
-        fusionShards,
-        mutationCores,
         cavernRank,
 
         mintStarterSlug,
-        buyDarkWaterAndUpgrade,
-        triggerFullGhoul,
+        mintsToday,
+        maxMintsPerDay: MAX_MINTS_PER_DAY,
         levelUpSlug,
-        fuseSlugs,
-        openChest,
+        ascendSlug,
+        quantumSpin,
         executeOfflineBattle,
         createPvpLobby,
         joinPvpLobby,
+        revealSlug,
         cancelPvpLobby,
-        resolvePvpLobby,
         claimTimeout,
         setActiveSlugId,
-        activateOverdrive,
-        regenerateEnergy,
         awakenSlug,
         soundMuted,
         toggleSoundMute,
@@ -876,32 +867,12 @@ export const useGameState = () => {
   return context;
 };
 
-export const getSlugImage = (element: number, isGhouled: boolean, fusionType?: string) => {
-  if (isGhouled || element === 5) {
-    if (fusionType) {
-      if (fusionType.includes("Inferno")) return "/images/slug_inferno.png";
-      if (fusionType.includes("Abyss")) return "/images/slug_abyss.png";
-      if (fusionType.includes("Void")) return "/images/slug_void.png";
-      if (fusionType.includes("Necro")) return "/images/slug_necro.png";
-    }
-    return "/images/slug_shadow.png";
-  }
-  
-  if (fusionType) {
-    const fLower = fusionType.toLowerCase();
-    if (fLower.includes("plasma")) return "/images/slug_plasma.png";
-    if (fLower.includes("magma")) return "/images/slug_magma.png";
-    if (fLower.includes("steam")) return "/images/slug_steam.png";
-    if (fLower.includes("frost")) return "/images/slug_frost.png";
-    if (fLower.includes("toxic")) return "/images/slug_toxic.png";
-    if (fLower.includes("sand")) return "/images/slug_sand.png";
-  }
-
+export const getSlugImage = (element: number) => {
   switch (element) {
     case 1: return "/images/slug_fire.png";
     case 2: return "/images/slug_water.png";
     case 3: return "/images/slug_earth.png";
     case 4: return "/images/slug_air.png";
-    default: return "/images/slug_shadow.png";
+    default: return "/images/slug_fire.png";
   }
 };

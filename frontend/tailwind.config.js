@@ -53,7 +53,17 @@ export default {
         "primary": "var(--color-primary)",
         "on-surface": "var(--color-on-surface)",
         "surface-container-highest": "var(--color-surface-container-highest)",
-        "tertiary-fixed-dim": "var(--color-tertiary-fixed-dim)"
+        "tertiary-fixed-dim": "var(--color-tertiary-fixed-dim)",
+        'kinetic-surface': '#0b1326',
+        'kinetic-surface-bright': '#31394e',
+        'kinetic-surface-low': '#131b2e',
+        'infusion-green': '#00ff66',
+        'mutation-purple': '#a855f7',
+        'cyber-blue': '#38bdf8',
+      },
+      backgroundImage: {
+        'glow-gradient': 'radial-gradient(circle at center, rgba(0, 255, 102, 0.15) 0%, transparent 70%)',
+        'hologram-grid': 'linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px)',
       },
       borderRadius: {
         "DEFAULT": "0.125rem",

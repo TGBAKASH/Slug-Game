@@ -14,14 +14,19 @@ import { QuantumReactor } from "./components/QuantumReactor";
 import { Dashboard } from "./components/Dashboard";
 import { BackgroundParticles } from "./components/BackgroundParticles";
 import { GlobalCanvas } from "./components/scene/environments/GlobalCanvas";
-import { ConnectButton, useSuiClientContext } from "@mysten/dapp-kit";
-import { Radar, Swords, Sparkles, BookOpen, Trophy, LayoutDashboard, User, Zap } from "lucide-react";
+import { ConnectButton, useSuiClientContext, useCurrentAccount } from "@mysten/dapp-kit";
+import { Radar, Swords, Sparkles, BookOpen, Trophy, LayoutDashboard, User, Zap, Wallet, X } from "lucide-react";
 
 const MainAppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"dashboard" | "command" | "incubator" | "arena" | "leaderboard" | "guide" | "profile" | "quantum">("dashboard");
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showWalletGate, setShowWalletGate] = useState(false);
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const cursorRingRef = useRef<HTMLDivElement>(null);
+
+  const account = useCurrentAccount();
+  const isConnected = !!account;
 
   useEffect(() => {
     const cursor = document.getElementById('cursor');
@@ -57,6 +62,34 @@ const MainAppContent: React.FC = () => {
     };
   }, []);
 
+  // ─── Wallet Gate: intercept all tab switches ───
+  const switchTab = (tab: string) => {
+    // Dashboard (scroll animation) is always accessible
+    if (tab === "dashboard") {
+      setActiveTab("dashboard");
+      return;
+    }
+
+    // All other tabs require wallet connection
+    if (!isConnected) {
+      setPendingTab(tab);
+      setShowWalletGate(true);
+      return;
+    }
+
+    setActiveTab(tab as any);
+  };
+
+  // When wallet connects while gate is open, auto-navigate to pending tab
+  useEffect(() => {
+    if (isConnected && pendingTab) {
+      setShowWalletGate(false);
+      setActiveTab(pendingTab as any);
+      setPendingTab(null);
+    }
+  }, [isConnected, pendingTab]);
+
+  // Listen for custom switch-tab events (from scroll animation buttons)
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -65,19 +98,18 @@ const MainAppContent: React.FC = () => {
         'command': 'command',
       };
       const tab = tabMap[detail] || detail;
-      setActiveTab(tab as any);
+      switchTab(tab);
     };
     window.addEventListener('switch-tab', handler);
     return () => window.removeEventListener('switch-tab', handler);
-  }, []);
+  }, [isConnected]); // re-bind when connection status changes
 
   const { network } = useSuiClientContext();
 
   const navigationItems = [
-        { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: "command", label: "Arsenal", icon: <Radar className="w-5 h-5" /> },
     { id: "incubator", label: "Hatchery", icon: <Sparkles className="w-5 h-5" /> },
-
     { id: "quantum", label: "Reactor", icon: <Zap className="w-5 h-5 text-yellow-400" /> },
     { id: "arena", label: "Arena", icon: <Swords className="w-5 h-5" /> },
     { id: "leaderboard", label: "Ranks", icon: <Trophy className="w-5 h-5" /> },
@@ -125,10 +157,9 @@ const MainAppContent: React.FC = () => {
       {/* Main Content Area - Aethera Shell */}
       <div id="app-shell">
         <div key={activeTab} className="tab-panel active animate-fade-in transition-all duration-300">
-                    {activeTab === "dashboard" && <Dashboard />}
+          {activeTab === "dashboard" && <Dashboard />}
           {activeTab === "command" && <CommandCenter />}
           {activeTab === "incubator" && <Incubator />}
-
           {activeTab === "quantum" && <QuantumReactor />}
           {activeTab === "arena" && <CavernArena />}
           {activeTab === "leaderboard" && <Leaderboard />}
@@ -144,7 +175,7 @@ const MainAppContent: React.FC = () => {
           return (
             <React.Fragment key={item.id}>
               <button
-                onClick={() => setActiveTab(item.id as any)}
+                onClick={() => switchTab(item.id)}
                 className={`bnav-btn ${isActive ? 'active' : ''}`}
                 data-tab={item.id}
               >
@@ -158,6 +189,112 @@ const MainAppContent: React.FC = () => {
       </nav>
 
       {showProfileModal && <ProfileModal onClose={() => setShowProfileModal(false)} />}
+
+      {/* ═══════════ Wallet Gate Modal ═══════════ */}
+      {showWalletGate && (
+        <div 
+          className="fixed inset-0 z-[99999] flex items-center justify-center"
+          style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(12px)' }}
+        >
+          <div 
+            className="relative max-w-md w-full mx-4 animate-fade-in"
+            style={{
+              background: '#0a0a0a',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+              padding: '48px 40px',
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => { setShowWalletGate(false); setPendingTab(null); }}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)',
+                cursor: 'pointer', padding: '4px',
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Icon */}
+            <div style={{
+              width: '64px', height: '64px', margin: '0 auto 24px',
+              border: '2px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+              background: 'rgba(255, 255, 255, 0.03)',
+            }}>
+              <Wallet size={28} style={{ color: 'rgba(255, 255, 255, 0.6)' }} />
+            </div>
+
+            {/* Title */}
+            <div style={{
+              fontFamily: "'Orbitron', monospace",
+              fontSize: '10px',
+              letterSpacing: '4px',
+              color: 'rgba(255, 255, 255, 0.35)',
+              textAlign: 'center',
+              marginBottom: '8px',
+            }}>
+              AUTHENTICATION REQUIRED
+            </div>
+            <div style={{
+              fontFamily: "'Orbitron', monospace",
+              fontSize: '20px',
+              fontWeight: 900,
+              color: '#ffffff',
+              textAlign: 'center',
+              marginBottom: '16px',
+            }}>
+              CONNECT WALLET
+            </div>
+            <p style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '13px',
+              lineHeight: 1.7,
+              color: 'rgba(255, 255, 255, 0.45)',
+              textAlign: 'center',
+              marginBottom: '32px',
+            }}>
+              A Sui wallet connection is required to access the Slugterra protocol. 
+              Connect your wallet to deploy slugs, enter the arena, and interact with the network.
+            </p>
+
+            {/* Connect Button */}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <ConnectButton 
+                connectText="⬡ INITIALIZE CONNECTION"
+                style={{
+                  background: 'transparent',
+                  border: '2px solid rgba(255, 255, 255, 0.5)',
+                  color: '#ffffff',
+                  fontFamily: "'Orbitron', monospace",
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  letterSpacing: '2px',
+                  padding: '14px 32px',
+                  cursor: 'pointer',
+                  clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+                  transition: 'all 0.3s',
+                }}
+              />
+            </div>
+
+            {/* Footer hint */}
+            <p style={{
+              fontFamily: "'Orbitron', monospace",
+              fontSize: '9px',
+              letterSpacing: '2px',
+              color: 'rgba(255, 255, 255, 0.2)',
+              textAlign: 'center',
+              marginTop: '24px',
+            }}>
+              SUPPORTED: SUI WALLET • SUIET • ETHOS • NIGHTLY
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

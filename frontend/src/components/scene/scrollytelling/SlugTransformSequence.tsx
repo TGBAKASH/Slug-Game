@@ -4,10 +4,12 @@ import { TextBeat } from "./TextBeat";
 import { ParticleCanvas } from "./ParticleCanvas";
 import "./scrollytelling.css";
 
-const FRAME_COUNT = 200;
+const TOTAL_FRAMES_ON_DISK = 200;
+const FRAME_STEP = 2;         // load every 2nd frame to halve download
+const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP); // 100 frames
 const MAX_DPR = 1.5;
 const SCRUB_EASE = 0.18;
-const CONCURRENT_LOADS = 6;  // parallel image fetches
+const CONCURRENT_LOADS = 8;   // parallel image fetches
 
 const REDUCED_MOTION =
   typeof window !== "undefined" &&
@@ -44,16 +46,15 @@ export const SlugTransformSequence: React.FC = () => {
     let loaded = 0;
     const frames: SequenceFrame[] = new Array(FRAME_COUNT);
 
-    const loadOne = (i: number): Promise<void> =>
+    const loadOne = (frameIdx: number, slotIdx: number): Promise<void> =>
       new Promise((resolve) => {
         if (cancelled) { resolve(); return; }
-        const idx = i - 1;
         const img = new Image();
-        img.src = `/sequence/frame_${i.toString().padStart(4, "0")}.jpg`;
+        img.src = `/sequence/frame_${frameIdx.toString().padStart(4, "0")}.jpg`;
 
         const done = () => {
           if (cancelled) { resolve(); return; }
-          frames[idx] = img;
+          frames[slotIdx] = img;
           loaded++;
           setLoadProgress((loaded / FRAME_COUNT) * 100);
           if (loaded === FRAME_COUNT) setIsLoaded(true);
@@ -64,14 +65,17 @@ export const SlugTransformSequence: React.FC = () => {
         img.onerror = () => { loaded++; setLoadProgress((loaded / FRAME_COUNT) * 100); if (loaded === FRAME_COUNT) setIsLoaded(true); resolve(); };
       });
 
-    // Queue: load CONCURRENT_LOADS at a time
-    const queue = Array.from({ length: FRAME_COUNT }, (_, k) => k + 1);
+    // Build queue: every FRAME_STEP-th frame (1, 3, 5, ... or 1, 2, 3... based on step)
+    const queue: { frameIdx: number; slotIdx: number }[] = [];
+    for (let slot = 0; slot < FRAME_COUNT; slot++) {
+      queue.push({ frameIdx: slot * FRAME_STEP + 1, slotIdx: slot });
+    }
     let running = 0;
     const next = () => {
       while (running < CONCURRENT_LOADS && queue.length > 0 && !cancelled) {
-        const idx = queue.shift()!;
+        const item = queue.shift()!;
         running++;
-        loadOne(idx).then(() => { running--; next(); });
+        loadOne(item.frameIdx, item.slotIdx).then(() => { running--; next(); });
       }
     };
     next();
@@ -169,11 +173,11 @@ export const SlugTransformSequence: React.FC = () => {
       {!isLoaded && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050505] h-screen w-full" style={{ cursor: 'none' }}>
           <div className="flex flex-col items-center justify-center p-8">
-            <h1 className="font-orbitron text-5xl font-black text-white mb-4 tracking-widest drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] [text-shadow:0_4px_20px_rgba(0,0,0,1)] animate-title-glow">
+            <h1 className="font-orbitron text-6xl sm:text-7xl font-black text-white mb-4 tracking-widest drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] [text-shadow:0_4px_20px_rgba(0,0,0,1)] animate-title-glow">
               SLUGTERRA
             </h1>
-            <p className="font-inter text-white/70 tracking-widest text-sm uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-              Mission Protocol Init...
+            <p className="font-inter text-white/50 tracking-widest text-sm uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+              Entering the Caverns...
             </p>
           </div>
           <div className="w-[300px] h-[2px] bg-white/10 relative overflow-hidden rounded-full mb-4">

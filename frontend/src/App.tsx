@@ -194,7 +194,7 @@ const MainAppContent: React.FC = () => {
       {showWalletGate && (
         <div 
           className="fixed inset-0 z-[99999] flex items-center justify-center"
-          style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(12px)' }}
+          style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(12px)', cursor: 'auto' }}
         >
           <div 
             className="relative max-w-md w-full mx-4 animate-fade-in"

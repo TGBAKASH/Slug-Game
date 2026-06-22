@@ -7,9 +7,10 @@ import "./scrollytelling.css";
 const TOTAL_FRAMES_ON_DISK = 200;
 const FRAME_STEP = 2;         // load every 2nd frame — 100 frames (~192MB)
 const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP); // 100 frames
+const EARLY_LOAD_THRESHOLD = 0.25; // show animation after 25% frames loaded
 const MAX_DPR = 1.5;
 const SCRUB_EASE = 0.18;
-const CONCURRENT_LOADS = 10;  // parallel image fetches
+const CONCURRENT_LOADS = 12;  // aggressive parallel fetches
 
 const REDUCED_MOTION =
   typeof window !== "undefined" &&
@@ -22,6 +23,7 @@ export const SlugTransformSequence: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<SequenceFrame[]>([]);
+  const isLoadedRef = useRef(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scrollContainer, setScrollContainer] = useState<HTMLElement | null>(null);
@@ -57,12 +59,24 @@ export const SlugTransformSequence: React.FC = () => {
           frames[slotIdx] = img;
           loaded++;
           setLoadProgress((loaded / FRAME_COUNT) * 100);
-          if (loaded === FRAME_COUNT) setIsLoaded(true);
+          // Start showing animation early once threshold is met
+          if (!isLoadedRef.current && loaded >= FRAME_COUNT * EARLY_LOAD_THRESHOLD) {
+            isLoadedRef.current = true;
+            setIsLoaded(true);
+          }
           resolve();
         };
 
         img.onload = done;
-        img.onerror = () => { loaded++; setLoadProgress((loaded / FRAME_COUNT) * 100); if (loaded === FRAME_COUNT) setIsLoaded(true); resolve(); };
+        img.onerror = () => {
+          loaded++;
+          setLoadProgress((loaded / FRAME_COUNT) * 100);
+          if (!isLoadedRef.current && loaded >= FRAME_COUNT * EARLY_LOAD_THRESHOLD) {
+            isLoadedRef.current = true;
+            setIsLoaded(true);
+          }
+          resolve();
+        };
       });
 
     // Build queue: every FRAME_STEP-th frame (1, 3, 5, ... or 1, 2, 3... based on step)
@@ -128,7 +142,9 @@ export const SlugTransformSequence: React.FC = () => {
     if (canvas.parentElement) ro.observe(canvas.parentElement);
 
     const draw = (p: number) => {
-      const idx = Math.min(FRAME_COUNT - 1, Math.max(0, Math.floor(p * FRAME_COUNT)));
+      // Clamp to 80% of frames so animation freezes when arena text shows
+      const clampedP = Math.min(p, 0.80);
+      const idx = Math.min(FRAME_COUNT - 1, Math.max(0, Math.floor(clampedP * FRAME_COUNT)));
       if (idx === lastIdx) return;
       lastIdx = idx;
 
@@ -168,7 +184,7 @@ export const SlugTransformSequence: React.FC = () => {
   const loaderInitial = { width: 0 };
   const loaderAnimate = { width: `${loadProgress}%` };
   const loaderTransition = { ease: "easeOut", duration: 0.3 } as const;
-  const scrollTrackStyle = { height: "420vh" };
+  const scrollTrackStyle = { height: "380vh" };
   const badgeInitial = { opacity: 0, scale: 0.8, y: 10 };
   const badgeInView = { opacity: 1, scale: 1, y: 0 };
   const badgeViewport = { once: true };

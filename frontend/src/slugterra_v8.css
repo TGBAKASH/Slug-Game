@@ -54,10 +54,22 @@
   body.dashboard-active #cursor { background: #FFFFFF; box-shadow: 0 0 10px rgba(255,255,255,0.8); }
   body.dashboard-active #cursor-ring { border-color: rgba(255,255,255,0.8); }
 
-  /* Hide native cursor everywhere EXCEPT wallet gate modal */
-  *:not(.wallet-gate):not(.wallet-gate *) { cursor: none !important; }
+  /* Hide native cursor on app elements only — SDK modals/dialogs keep default cursor */
+  body,
+  #app-shell,
+  #app-shell *,
+  #app-header,
+  #app-header *,
+  #bottom-nav,
+  #bottom-nav *,
+  canvas { cursor: none !important; }
+  /* Restore cursor on wallet gate and any SDK portals/overlays */
   .wallet-gate, .wallet-gate * { cursor: auto !important; }
   .wallet-gate button, .wallet-gate [role="button"] { cursor: pointer !important; }
+  [data-radix-portal], [data-radix-portal] * { cursor: auto !important; }
+  [data-radix-portal] button, [data-radix-portal] [role="button"] { cursor: pointer !important; }
+  [role="dialog"], [role="dialog"] * { cursor: auto !important; }
+  [role="dialog"] button { cursor: pointer !important; }
 
   #bg-grid { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px); background-size: 60px 60px; z-index: 0; pointer-events: none; }
   #scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); z-index: 1; pointer-events: none; }

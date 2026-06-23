@@ -193,7 +193,7 @@ const MainAppContent: React.FC = () => {
       {/* ═══════════ Wallet Gate Modal ═══════════ */}
       {showWalletGate && (
         <div 
-          className="fixed inset-0 z-[99999] flex items-center justify-center"
+          className="wallet-gate fixed inset-0 z-[99999] flex items-center justify-center"
           style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(12px)', cursor: 'auto' }}
         >
           <div 

@@ -136,15 +136,15 @@ export const CommandCenter: React.FC = () => {
         <div className="space-y-2 pt-2">
           <h2 
             className="uppercase tracking-widest font-black leading-relaxed drop-shadow-sm"
-            style={{ fontSize: '18px', color: '#0f172a' }}
+            style={{ fontSize: '18px', color: 'var(--ink)' }}
           >
             OPERATOR COMMAND HUD
           </h2>
           <p 
             className="max-w-xl leading-relaxed"
-            style={{ fontSize: '11px', color: '#334155' }}
+            style={{ fontSize: '11px', color: 'var(--ink-dim)' }}
           >
-            Sui Network Matrix: <span style={{ color: walletMode ? '#0f172a' : '#d97706', fontWeight: 900 }}>{walletMode ? "CONNECTED WALLET" : "LOCAL SIMULATOR"}</span>. Level up slugs, review stats, and prepare for arena battles.
+            Sui Network Matrix: <span style={{ color: walletMode ? 'var(--ink)' : '#d97706', fontWeight: 900 }}>{walletMode ? "CONNECTED WALLET" : "LOCAL SIMULATOR"}</span>. Level up slugs, review stats, and prepare for arena battles.
           </p>
         </div>
 

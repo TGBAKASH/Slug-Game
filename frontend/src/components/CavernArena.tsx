@@ -159,15 +159,15 @@ export const CavernArena: React.FC = () => {
       {/* Top Status Bar */}
       <div className="hatchery-config">
         <div className="hatchery-config-inner" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px'}}>
-          <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "2px", display: 'flex', gap: '30px', flexWrap: 'wrap', color: '#6F6F6F'}}>
-             <div>RANK: <span style={{color: "#000000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{cavernRank}</span></div>
-             <div>DARK COINS: <span style={{color: "#000000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{darkCoins}</span></div>
-             <div>ENERGY: <span style={{color: arenaEnergy > 0 ? "#000000" : "#cc0000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{arenaEnergy}/{maxArenaEnergy}</span></div>
+          <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "2px", display: 'flex', gap: '30px', flexWrap: 'wrap', color: 'var(--ink-dim)'}}>
+             <div>RANK: <span style={{color: "var(--ink)", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{cavernRank}</span></div>
+             <div>DARK COINS: <span style={{color: "var(--ink)", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{darkCoins}</span></div>
+             <div>ENERGY: <span style={{color: arenaEnergy > 0 ? "var(--ink)" : "#cc0000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{arenaEnergy}/{maxArenaEnergy}</span></div>
           </div>
           <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-             <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "2px", color: '#6F6F6F'}}>ACTIVE CANISTER:</div>
+             <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "2px", color: 'var(--ink-dim)'}}>ACTIVE CANISTER:</div>
              <select
-               style={{background: "var(--panel-bg)", border: "1px solid rgba(0,0,0,0.15)", color: "#000000", fontFamily: "'Orbitron', monospace", fontSize: "12px", padding: "8px 12px", outline: "none", cursor: "pointer"}}
+               style={{background: "var(--panel-bg)", border: "1px solid var(--surface-border)", color: "var(--ink)", fontFamily: "'Orbitron', monospace", fontSize: "12px", padding: "8px 12px", outline: "none", cursor: "pointer"}}
                value={activeSlug?.id || ""}
                onChange={(e) => setActiveSlugId(e.target.value)}
              >

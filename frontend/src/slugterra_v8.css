@@ -2032,6 +2032,38 @@
   [data-theme="dark"] .arena-stake-amount { color: #F0EDE8 !important; }
   [data-theme="dark"] .join-fight-btn { background: #F0EDE8 !important; color: #0A0A0A !important; }
 
+  /* Dark: Command Center (overrides Tailwind bg-white / text-slate) */
+  [data-theme="dark"] .tab-panel .bg-white {
+    background: rgba(255,255,255,0.04) !important;
+    border-color: rgba(255,255,255,0.1) !important;
+    color: #F0EDE8 !important;
+  }
+  [data-theme="dark"] .tab-panel .text-slate-900,
+  [data-theme="dark"] .tab-panel .text-slate-800,
+  [data-theme="dark"] .tab-panel .text-slate-700 {
+    color: #F0EDE8 !important;
+  }
+  [data-theme="dark"] .tab-panel .text-slate-600,
+  [data-theme="dark"] .tab-panel .text-slate-500 {
+    color: rgba(240,237,232,0.5) !important;
+  }
+  [data-theme="dark"] .tab-panel .text-slate-400 {
+    color: rgba(240,237,232,0.35) !important;
+  }
+  [data-theme="dark"] .tab-panel .border-slate-300,
+  [data-theme="dark"] .tab-panel .border-slate-200 {
+    border-color: rgba(255,255,255,0.1) !important;
+  }
+  [data-theme="dark"] .tab-panel .bg-slate-50,
+  [data-theme="dark"] .tab-panel .bg-slate-100 {
+    background: rgba(255,255,255,0.06) !important;
+  }
+  [data-theme="dark"] .tab-panel select,
+  [data-theme="dark"] .tab-panel option {
+    background: #1a1a1a !important;
+    color: #F0EDE8 !important;
+  }
+
   /* Dark: terminal / database */
   [data-theme="dark"] .terminal { background: rgba(255,255,255,0.02) !important; border-color: rgba(255,255,255,0.08) !important; }
   [data-theme="dark"] .terminal-bar { background: rgba(255,255,255,0.03) !important; border-bottom-color: rgba(255,255,255,0.07) !important; color: rgba(240,237,232,0.35) !important; }

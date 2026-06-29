@@ -1,145 +1,91 @@
-# 🐌 Slugterra: Cavern Clash
+# Slugterra: Cavern Clash
 
-A fully on-chain PvP battle game built on [Sui](https://sui.io). Collect, evolve, and battle elemental slugs as NFTs.
-
-![Slugterra](frontend/public/images/slug_fire.png)
+A Web3 battle game on Sui where you collect, evolve, and battle elemental slugs — all on-chain.
 
 ---
 
-## What is this?
+## About
 
-Slugterra is a Web3 game where you collect elemental slug creatures, level them up, evolve them through different tiers, and battle other players in the Cavern Arena. Every slug is an NFT on Sui — you own it, you trade it, you battle with it.
+Slugterra lets you mint slug NFTs, level them up, and battle opponents in a PvE arena. Every slug lives on the Sui blockchain as an NFT with on-chain stats (HP, ATK, element, level, win/loss record). Elements are assigned randomly at mint time — you can't pick what you get.
 
-### Features
+There are four elements: **Fire**, **Water**, **Earth**, and **Air**. Each has strengths and weaknesses following a simple cycle: Water beats Fire, Fire beats Earth, Earth beats Air, Air beats Water. Elemental advantage gives +15% damage in battle.
 
-- 🎮 **PvE Battles** — Fight AI opponents to earn Dark Coins and XP
-- ⚔️ **PvP Arena** — Challenge other players in the Cavern Arena
-- 🧬 **Evolution System** — Slugs evolve through tiers (Rookie → Veteran → Elite → Mega → Omega)
-- 🎰 **Quantum Reactor** — Spin for rewards, coins, and rare slug drops
-- 🖼️ **NFT Minting** — Mint your slugs on-chain as Sui NFTs
-- 📖 **Field Guide** — Browse all 15 elemental slug types and their stats
-- 🏆 **Leaderboard** — Compete for the top spot
-- 🌊 **Cinematic Intro** — Scroll-driven 200-frame transformation sequence
+Slugs can be leveled from 1 to 50 using Dark Coins (earned through battles and the Quantum Reactor). Each level up costs `current_level × 10` coins and recalculates stats on-chain.
 
-### Slug Elements
+## Game Sections
 
-| Element | Slug | Element | Slug |
-|---------|------|---------|------|
-| 🔥 Fire | Infurnus | 💧 Water | Aquabeek |
-| 🌍 Earth | Rammstone | 💨 Air | Zephyr |
-| ❄️ Frost | Chiller | 🌋 Magma | Lavalynx |
-| ☠️ Toxic | Gastrodon | 🌫️ Steam | Vaporex |
-| ⚡ Plasma | Tazerling | 🏜️ Sand | Sandsurge |
-| 👻 Shadow | Nightshade | 🌑 Abyss | Abyssal |
-| 💀 Necro | Cryptogrif | 🕳️ Void | Voidwalker |
-| 🔥 Inferno | Pyroxin | | |
+- **Dashboard** — Cinematic scroll intro with a 200-frame transformation sequence
+- **Incubator** — Mint new slugs (free or premium at 0.5 SUI for better element odds)
+- **Command Center** — View your slug roster, level up, manage stats
+- **Cavern Arena** — PvE battles against AI opponents with elemental matchups
+- **Quantum Reactor** — Daily spin (0.05 SUI) for slug drops or Dark Coin rewards
+- **Leaderboard** — Your battle stats and operator metrics
+- **Field Guide** — Complete game manual and mechanics reference
+- **Profile** — Wallet info and account settings
 
----
+## Elements
+
+| Element | Default Name | Strong Against | Weak Against |
+|---------|-------------|----------------|--------------|
+| Fire | INFERNO | Earth | Water |
+| Water | TIDAL | Fire | Air |
+| Earth | BOULDER | Air | Fire |
+| Air | ZEPHYR | Water | Earth |
 
 ## Tech Stack
 
-| Layer | Tech |
-|-------|------|
-| Frontend | React 19, TypeScript, Framer Motion, Three.js |
-| Backend | Express 5, Node.js |
-| Database | MongoDB Atlas |
-| Blockchain | Sui (Move smart contracts) |
-| Wallet | @mysten/dapp-kit (Sui Wallet, Suiet, Ethos) |
-| Deployment | Nginx + PM2 on Ubuntu VPS |
+- **Frontend** — React 19, TypeScript, Framer Motion, Three.js (3D slug models)
+- **Backend** — Express 5, Node.js, MongoDB
+- **Blockchain** — Sui (Move smart contracts)
+- **Wallet** — @mysten/dapp-kit (Sui Wallet, Suiet, Ethos, Slush)
+- **Hosting** — Nginx + PM2 on Ubuntu
 
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- MongoDB (local or Atlas)
-- A Sui wallet (Sui Wallet or Suiet browser extension)
-
-### Install & Run
+## Setup
 
 ```bash
-# Clone
 git clone https://github.com/TGBAKASH/Slug-Game.git
 cd Slug-Game
 
-# Install everything
+# Install dependencies
 npm run install:all
 
-# Set up environment
+# Configure environment
 cp .env.example .env
-# Edit .env with your MongoDB URI
+# Fill in your MongoDB URI
 
-# Run the frontend (dev mode)
-npm run dev:frontend
+# Development
+npm run dev:frontend    # React dev server (port 5173)
+npm run dev:server      # Express API (port 3000)
 
-# In another terminal — run the backend
-npm run dev:server
+# Production
+npm run build
+npm start
 ```
 
-The frontend runs on `http://localhost:5173` and the API on `http://localhost:3000`.
-
-### Production Build
-
-```bash
-npm run build    # Builds the React frontend
-npm start        # Starts the Express server (serves API + static files)
-```
-
----
-
-## Project Structure
+## Project Layout
 
 ```
-slug/
-├── frontend/           # React app
-│   ├── src/
-│   │   ├── components/ # UI components (Arena, Dashboard, Incubator, etc.)
-│   │   ├── context/    # React context (GameState, SceneDirector)
-│   │   └── App.tsx     # Main app with routing
-│   └── public/
-│       ├── images/     # Slug artwork (15 elements)
-│       ├── models/     # 3D slug models (.glb)
-│       └── sequence/   # 200-frame scroll animation
-├── server/
-│   └── index.js        # Express API (coins, wallet, health)
-├── move/               # Sui Move smart contracts
-└── package.json
+frontend/
+  src/components/     — All game UI (Arena, Incubator, CommandCenter, etc.)
+  src/context/        — GameState (on-chain data), SceneDirector
+  public/models/      — 3D slug models (.glb) for Fire, Water, Earth, Air
+  public/images/      — Slug artwork
+  public/sequence/    — 200 frames for the scroll animation
+server/
+  index.js            — Express API for Dark Coins (MongoDB-backed)
+move/
+  sources/            — Sui Move smart contracts
 ```
-
----
-
-## Smart Contracts (Sui Move)
-
-The on-chain layer handles:
-- **Slug NFTs** — Minting, metadata, ownership
-- **Battles** — PvP resolution with on-chain randomness
-- **Evolution** — Tier upgrades locked behind level + coin requirements
-
-Contracts are in the `move/` directory.
-
----
 
 ## Environment Variables
 
-```env
-MONGODB_URI=mongodb+srv://...     # MongoDB connection string
-DB_NAME=slugterra                 # Database name
-PORT=3000                         # Server port
-API_SECRET=your-secret-key        # API authentication secret
+```
+MONGODB_URI=mongodb+srv://...
+DB_NAME=slugterra
+PORT=3000
+API_SECRET=<random-secret>
 ```
 
----
+## Live
 
-## Live Demo
-
-🌐 [blockchain-games.site](https://blockchain-games.site)
-
----
-
-## License
-
-This project is built for the Sui ecosystem. All slug artwork and game design are original.
-
-Made with 🔥 by the Slugterra team.
+[blockchain-games.site](https://blockchain-games.site)

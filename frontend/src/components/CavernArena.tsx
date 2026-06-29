@@ -292,7 +292,7 @@ export const CavernArena: React.FC = () => {
                   style={{
                     background: selectedWager === wAmt ? "rgba(0, 245, 255, 0.15)" : "transparent",
                     border: `1px solid ${selectedWager === wAmt ? "var(--neon-cyan)" : "rgba(255,255,255,0.1)"}`,
-                    color: selectedWager === wAmt ? "var(--neon-cyan)" : "var(--text-dim)",
+                    color: selectedWager === wAmt ? "var(--neon-cyan)" : "#FFFFFF",
                     padding: "10px",
                     fontFamily: "'Orbitron', monospace",
                     fontSize: "12px",

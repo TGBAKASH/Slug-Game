@@ -32,6 +32,34 @@ Slugs can be leveled from 1 to 50 using Dark Coins (earned through battles and t
 | Earth | BOULDER | Air | Fire |
 | Air | ZEPHYR | Water | Earth |
 
+## Anti-Exploit & Economy Protection
+
+We've built multiple layers of protection to keep the in-game economy fair and prevent abuse.
+
+**Server-Side Coin Storage**
+All Dark Coin balances are stored in MongoDB on the server — not in the browser. Players can't edit localStorage or tamper with their balance. Every coin earned or spent goes through server validation before being applied.
+
+**Arena Energy System**
+Players get 10 arena energy. Each PvE win costs 1 energy. Energy refills at a rate of 1 per hour. This caps coin farming to roughly 10 battles before you have to wait. The server enforces this — even if someone bypasses the frontend, the API will reject coin grants when energy is empty.
+
+**Per-Wallet Rate Limiting**
+Every API call is rate-limited to one request per 2 seconds per wallet address. This is enforced server-side using an in-memory map, preventing rapid-fire abuse of any endpoint.
+
+**Coin Earning Cap**
+A single PvE battle can award at most 200 Dark Coins. The server also enforces a hard cap of 500 coins per API call regardless of what the client sends. This prevents inflated coin injection even if someone crafts a manual API request.
+
+**Loss Streak Sleep Penalty**
+Losing consecutive PvE battles puts your slug to sleep — 5 minutes for the first loss, 15 minutes for the second, and 30 minutes for three or more in a row. Winning resets the counter. This prevents mindless battle spam and makes each fight matter.
+
+**Server-Validated Level-Up Costs**
+When leveling up a slug, the server independently calculates the expected cost using the formula `level × 10` and rejects the transaction if the amount doesn't match. You can't trick the API into accepting a cheaper level-up.
+
+**On-Chain Ownership**
+Slugs are Sui NFTs. Minting, evolution, and PvP resolution happen on-chain through Move smart contracts. You can't fake ownership or duplicate slugs — the blockchain is the source of truth.
+
+**Reason-Locked Earning**
+The earn endpoint only accepts specific reasons: `pve_win`, `spin_coins`, `premium_mint_bonus`, and `ascend_refund`. Any request with an unknown reason is rejected. This prevents arbitrary coin minting through API misuse.
+
 ## Tech Stack
 
 - **Frontend** — React 19, TypeScript, Framer Motion, Three.js (3D slug models)
@@ -88,4 +116,8 @@ API_SECRET=<random-secret>
 
 ## Live
 
-[blockchain-games.site](https://blockchain-games.site)
+**blockchain-games.site** — Domain is being configured and will be updated soon.
+
+The current live build is hosted on a free-tier server, so the initial load takes longer than usual (the dashboard loads 200 animation frames on first visit). Once cached, subsequent visits are fast.
+
+[slug-game.onrender.com](https://slug-game.onrender.com)

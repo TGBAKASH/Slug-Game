@@ -7,7 +7,7 @@ import "./scrollytelling.css";
 const TOTAL_FRAMES_ON_DISK = 200;
 const FRAME_STEP = 2;         // load every 2nd frame — 100 frames (~192MB)
 const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP); // 100 frames
-const EARLY_LOAD_THRESHOLD = 0.25; // show animation after 25% frames loaded
+const EARLY_LOAD_THRESHOLD = 1.0;  // only show animation after ALL frames loaded
 const MAX_DPR = 1.5;
 const SCRUB_EASE = 0.18;
 const CONCURRENT_LOADS = 12;  // aggressive parallel fetches

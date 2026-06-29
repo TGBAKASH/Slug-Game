@@ -28,15 +28,18 @@ const API_SECRET = process.env.API_SECRET || crypto.randomBytes(32).toString('he
 
 let db;
 let coinsCollection;
+let energyCollection;
 
 async function connectDB() {
   const client = new MongoClient(MONGO_URI);
   await client.connect();
   db = client.db(DB_NAME);
   coinsCollection = db.collection('coins');
+  energyCollection = db.collection('energy');
   
   // Create unique index on wallet
   await coinsCollection.createIndex({ wallet: 1 }, { unique: true });
+  await energyCollection.createIndex({ wallet: 1 }, { unique: true });
   console.log('[DB] Connected to MongoDB');
 }
 
@@ -46,6 +49,8 @@ const STARTING_COINS = 350;
 const MAX_LEVEL = 50;
 const MAX_EARN_PER_BATTLE = 500; // cap to prevent abuse
 const RATE_LIMIT_MS = 2000;      // 2 seconds between requests per wallet
+const MAX_ENERGY = 10;
+const ENERGY_REFILL_MS = 3600000; // 1 hour per energy point
 
 // Simple in-memory rate limiter
 const lastRequest = new Map();
@@ -56,6 +61,32 @@ function rateLimit(wallet) {
   if (now - last < RATE_LIMIT_MS) return false;
   lastRequest.set(wallet, now);
   return true;
+}
+
+async function getEnergy(wallet) {
+  let doc = await energyCollection.findOne({ wallet });
+  if (!doc) {
+    doc = { wallet, energy: MAX_ENERGY, lastRefillAt: new Date(), createdAt: new Date() };
+    await energyCollection.insertOne(doc);
+    return { energy: MAX_ENERGY, maxEnergy: MAX_ENERGY, nextRefillAt: null };
+  }
+  // Calculate refilled energy based on time elapsed
+  const now = Date.now();
+  const elapsed = now - doc.lastRefillAt.getTime();
+  const refilled = Math.floor(elapsed / ENERGY_REFILL_MS);
+  let currentEnergy = Math.min(MAX_ENERGY, doc.energy + refilled);
+  
+  // Update DB if any energy refilled
+  if (refilled > 0 && doc.energy < MAX_ENERGY) {
+    const newLastRefill = new Date(doc.lastRefillAt.getTime() + refilled * ENERGY_REFILL_MS);
+    await energyCollection.updateOne({ wallet }, { $set: { energy: currentEnergy, lastRefillAt: newLastRefill } });
+  }
+  
+  const nextRefillAt = currentEnergy < MAX_ENERGY
+    ? new Date(doc.lastRefillAt.getTime() + (refilled + 1) * ENERGY_REFILL_MS).toISOString()
+    : null;
+  
+  return { energy: currentEnergy, maxEnergy: MAX_ENERGY, nextRefillAt };
 }
 
 // Get or initialize wallet balance
@@ -69,6 +100,19 @@ async function getBalance(wallet) {
 }
 
 // ─── API Routes ───
+
+// GET /api/energy/:wallet — Get current arena energy
+app.get('/api/energy/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    const energy = await getEnergy(wallet);
+    res.json(energy);
+  } catch (err) {
+    console.error('[API] GET /energy error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // GET /api/coins/:wallet — Get balance
 app.get('/api/coins/:wallet', async (req, res) => {
@@ -96,6 +140,19 @@ app.post('/api/coins/earn', async (req, res) => {
     // Validate reason
     const validReasons = ['pve_win', 'spin_coins', 'premium_mint_bonus', 'ascend_refund'];
     if (!validReasons.includes(reason)) return res.status(400).json({ error: 'Invalid reason' });
+    
+    // Deduct arena energy for PvE wins
+    if (reason === 'pve_win') {
+      const energyData = await getEnergy(wallet);
+      if (energyData.energy < 1) {
+        return res.status(403).json({ error: 'No arena energy remaining' });
+      }
+      // Atomically deduct 1 energy
+      await energyCollection.updateOne(
+        { wallet },
+        { $inc: { energy: -1 } }
+      );
+    }
     
     const result = await coinsCollection.findOneAndUpdate(
       { wallet },

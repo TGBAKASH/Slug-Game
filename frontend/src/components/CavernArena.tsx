@@ -19,6 +19,9 @@ export const CavernArena: React.FC = () => {
     activePvpLobbyOnChain,
     darkCoins,
     cavernRank,
+    arenaEnergy,
+    maxArenaEnergy,
+    nextEnergyRefillAt,
     createPvpLobby,
     joinPvpLobby,
     revealSlug,
@@ -159,6 +162,7 @@ export const CavernArena: React.FC = () => {
           <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "2px", display: 'flex', gap: '30px', flexWrap: 'wrap', color: '#6F6F6F'}}>
              <div>RANK: <span style={{color: "#000000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{cavernRank}</span></div>
              <div>DARK COINS: <span style={{color: "#000000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{darkCoins}</span></div>
+             <div>ENERGY: <span style={{color: arenaEnergy > 0 ? "#000000" : "#cc0000", fontWeight: 'bold', fontSize: "14px", marginLeft: "8px"}}>{arenaEnergy}/{maxArenaEnergy}</span></div>
           </div>
           <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
              <div style={{fontFamily: "'Orbitron', monospace", fontSize: "10px", letterSpacing: "2px", color: '#6F6F6F'}}>ACTIVE CANISTER:</div>
@@ -194,6 +198,7 @@ export const CavernArena: React.FC = () => {
                   {isPveBattling ? (
                     <div style={{padding: "12px 24px", border: "1px solid var(--neon-cyan)", color: "var(--neon-cyan)", fontFamily: "'Orbitron', monospace", fontSize: "12px", textAlign: "center", animation: "flicker 1.5s infinite"}}>BATTLE IN PROGRESS...</div>
                   ) : (
+                    <>
                     <button className="hatchery-mint-btn" style={{"--card-accent": "rgba(0, 245, 255, 0.5)"} as any} onClick={async () => {
                       if (!activeSlug) return;
                       if (isActiveSlugSleeping) {
@@ -217,7 +222,13 @@ export const CavernArena: React.FC = () => {
                       setPveResult(result);
                       setIsPveBattling(false);
                       setShowPveResult(true);
-                    }} disabled={isActiveSlugSleeping}><span>⬡ DEPLOY TO QUICK BATTLE</span></button>
+                    }} disabled={isActiveSlugSleeping || arenaEnergy < 1}><span>⬡ DEPLOY TO QUICK BATTLE</span></button>
+                    {arenaEnergy < 1 && (
+                      <p style={{fontFamily: "'Inter', sans-serif", fontSize: "11px", color: "#cc0000", marginTop: "8px", textAlign: "center"}}>
+                        No arena energy remaining. Recharges 1 per hour.
+                      </p>
+                    )}
+                    </>
                   )}
                </div>
             </div>

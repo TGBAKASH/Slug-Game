@@ -6,6 +6,7 @@ import { soundManager } from "./SoundManager";
 import { generateSalt, computeSlugHash } from "../utils/crypto";
 import { secureStore, secureRead, encryptSalt, decryptSalt, sanitizeSlugName, checkRateLimit, safeLog, createSeededRNG } from "../utils/security";
 import { initCoins, earnCoins, spendCoins, getCoinsBalance } from "../api/coins";
+import { getArenaEnergy } from '../api/energy';
 
 // Elements matching Move definitions (NO shadow)
 export const ELEMENTS: Record<number, { name: string; icon: string; color: string; glow: string; desc: string }> = {
@@ -70,6 +71,10 @@ interface GameStateContextProps {
   // Economy
   darkCoins: number;
   cavernRank: number;
+  arenaEnergy: number;
+  maxArenaEnergy: number;
+  nextEnergyRefillAt: string | null;
+  refreshEnergy: () => Promise<void>;
 
   // Minting
   mintStarterSlug: (name: string, tier: "free" | "premium") => Promise<Slug>;
@@ -204,12 +209,34 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
   }, [account]);
 
+
+
   // Helper: sync balance from server response
   const syncBalance = useCallback((newBalance: number) => {
     setDarkCoinsState(newBalance);
     // Also cache in localStorage as fallback display
     if (account) secureStore("slugterra_dark_coins", String(newBalance), account.address);
   }, [account]);
+
+  const [arenaEnergy, setArenaEnergy] = useState<number>(10);
+  const [maxArenaEnergy] = useState<number>(10);
+  const [nextEnergyRefillAt, setNextEnergyRefillAt] = useState<string | null>(null);
+
+  const refreshEnergy = useCallback(async () => {
+    if (!account) return;
+    try {
+      const data = await getArenaEnergy(account.address);
+      setArenaEnergy(data.energy);
+      setNextEnergyRefillAt(data.nextRefillAt);
+    } catch (e) {
+      console.warn('[Energy] fetch failed:', e);
+    }
+  }, [account]);
+
+  useEffect(() => {
+    if (account) refreshEnergy();
+  }, [account, refreshEnergy]);
+
 
   // Legacy setDarkCoins for any remaining direct calls (local-only, non-critical)
   const setDarkCoins = useCallback((updater: number | ((prev: number) => number)) => {
@@ -540,6 +567,11 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ["[0.0s] SLUG IS SLEEPING. Wait for recovery."], roundCount: 0 };
     }
 
+    // Check arena energy
+    if (arenaEnergy < 1) {
+      return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ['[0.0s] NO ARENA ENERGY. Wait for recharge (1 per hour).'], roundCount: 0 };
+    }
+
     soundManager.playLaunch();
     const logs: string[] = [];
     logs.push(`[0.0s] Deploying ${activeSlug.name} (${ELEMENTS[activeSlug.element]?.name || "?"})!`);
@@ -640,6 +672,11 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const newBal = await earnCoins(account.address, coinsEarned, 'pve_win');
         syncBalance(newBal);
       } catch { setDarkCoins((prev) => prev + coinsEarned); }
+    }
+
+    // Refresh energy after battle (win or lose, sync real value from server)
+    if (account) {
+      refreshEnergy();
     }
 
     return { success, isDraw, playerHpLeft: pHp, enemyHpLeft: eHp, coinsEarned, battleLogs: logs, roundCount: round };
@@ -835,6 +872,10 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         darkCoins,
         cavernRank,
+        arenaEnergy,
+        maxArenaEnergy,
+        nextEnergyRefillAt,
+        refreshEnergy,
 
         mintStarterSlug,
         mintsToday,

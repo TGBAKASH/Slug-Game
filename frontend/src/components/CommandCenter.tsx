@@ -129,7 +129,7 @@ export const CommandCenter: React.FC = () => {
       
       <header 
         className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 rounded-2xl relative overflow-hidden shadow-lg"
-        style={{ backgroundColor: '#f8fafc', border: '2px solid #cbd5e1', padding: '2rem', marginBottom: '2.5rem' }}
+        style={{ backgroundColor: 'var(--panel-bg)', border: '2px solid var(--surface-border)', padding: '2rem', marginBottom: '2.5rem' }}
       >
         <div className="absolute top-0 left-0 w-full h-[2px]" style={{ background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)' }}></div>
         

@@ -22,3 +22,7 @@ Thumbs.db
 
 # Large assets (host separately or use Git LFS)
 # frontend/public/sequence/
+
+# Deploy temp files
+*.tar
+setup_*.sh

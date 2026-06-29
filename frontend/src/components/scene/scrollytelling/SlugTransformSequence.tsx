@@ -228,6 +228,17 @@ export const SlugTransformSequence: React.FC = () => {
           <div className="font-orbitron text-[10px] tracking-[0.2em]" style={{ color: 'rgba(192, 132, 252, 0.4)' }}>
             LOADING... {Math.floor(loadProgress)}%
           </div>
+          <div 
+            className="mt-8 px-5 py-3 rounded-lg max-w-xs text-center"
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.04)', 
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <p className="font-inter text-[11px] leading-relaxed" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
+              ⚡ First visit may take a moment while assets are cached. Subsequent loads will be instant.
+            </p>
+          </div>
         </div>
       )}
 

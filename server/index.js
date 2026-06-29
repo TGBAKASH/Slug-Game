@@ -114,6 +114,33 @@ app.get('/api/energy/:wallet', async (req, res) => {
   }
 });
 
+// POST /api/energy/use — Deduct 1 energy before a PvE battle (win or lose)
+app.post('/api/energy/use', async (req, res) => {
+  try {
+    const { wallet } = req.body;
+    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (!rateLimit(wallet + '_energy')) return res.status(429).json({ error: 'Too fast' });
+    
+    const energyData = await getEnergy(wallet);
+    if (energyData.energy < 1) {
+      return res.status(403).json({ error: 'No arena energy remaining', energy: 0, maxEnergy: MAX_ENERGY, nextRefillAt: energyData.nextRefillAt });
+    }
+    
+    // Atomically deduct 1 energy
+    await energyCollection.updateOne(
+      { wallet },
+      { $inc: { energy: -1 } }
+    );
+    
+    // Return updated energy
+    const updated = await getEnergy(wallet);
+    res.json(updated);
+  } catch (err) {
+    console.error('[API] POST /energy/use error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/coins/:wallet — Get balance
 app.get('/api/coins/:wallet', async (req, res) => {
   try {
@@ -141,18 +168,7 @@ app.post('/api/coins/earn', async (req, res) => {
     const validReasons = ['pve_win', 'spin_coins', 'premium_mint_bonus', 'ascend_refund'];
     if (!validReasons.includes(reason)) return res.status(400).json({ error: 'Invalid reason' });
     
-    // Deduct arena energy for PvE wins
-    if (reason === 'pve_win') {
-      const energyData = await getEnergy(wallet);
-      if (energyData.energy < 1) {
-        return res.status(403).json({ error: 'No arena energy remaining' });
-      }
-      // Atomically deduct 1 energy
-      await energyCollection.updateOne(
-        { wallet },
-        { $inc: { energy: -1 } }
-      );
-    }
+
     
     const result = await coinsCollection.findOneAndUpdate(
       { wallet },

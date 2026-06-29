@@ -6,7 +6,7 @@ import { soundManager } from "./SoundManager";
 import { generateSalt, computeSlugHash } from "../utils/crypto";
 import { secureStore, secureRead, encryptSalt, decryptSalt, sanitizeSlugName, checkRateLimit, safeLog, createSeededRNG } from "../utils/security";
 import { initCoins, earnCoins, spendCoins, getCoinsBalance } from "../api/coins";
-import { getArenaEnergy } from '../api/energy';
+import { getArenaEnergy, useArenaEnergy } from '../api/energy';
 
 // Elements matching Move definitions (NO shadow)
 export const ELEMENTS: Record<number, { name: string; icon: string; color: string; glow: string; desc: string }> = {
@@ -256,7 +256,19 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const parsedSlugs = ownedSlugsData.data
         .map((obj) => parseSuiSlug(obj.data))
         .filter((s): s is Slug => s !== null);
-      setSlugs(parsedSlugs);
+      // Preserve client-side sleep_until_ms and consecutiveLosses
+      // (these don't exist on-chain, so chain sync would reset them to 0)
+      setSlugs(prev => {
+        const localState = new Map(prev.map(s => [s.id, { sleep: s.sleep_until_ms, losses: s.consecutiveLosses }]));
+        return parsedSlugs.map(s => {
+          const local = localState.get(s.id);
+          if (local) {
+            s.sleep_until_ms = local.sleep;
+            s.consecutiveLosses = local.losses;
+          }
+          return s;
+        });
+      });
     } else if (!account) {
       setSlugs([]);
     }
@@ -570,6 +582,17 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Check arena energy
     if (arenaEnergy < 1) {
       return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ['[0.0s] NO ARENA ENERGY. Wait for recharge (1 per hour).'], roundCount: 0 };
+    }
+
+    // Deduct 1 energy server-side BEFORE the battle (win or lose costs energy)
+    if (account) {
+      try {
+        const energyResult = await useArenaEnergy(account.address);
+        setArenaEnergy(energyResult.energy);
+        setNextEnergyRefillAt(energyResult.nextRefillAt);
+      } catch {
+        return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ['[0.0s] NO ARENA ENERGY. Wait for recharge (1 per hour).'], roundCount: 0 };
+      }
     }
 
     soundManager.playLaunch();

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGameState, ELEMENTS, BASE_STATS } from "../context/GameState";
 import { soundManager } from "../context/SoundManager";
 import { ArenaScene } from "./scene/environments/ArenaScene";
@@ -31,6 +31,19 @@ export const CavernArena: React.FC = () => {
   } = useGameState();
 
   const isActiveSlugSleeping = activeSlug ? activeSlug.sleep_until_ms > Date.now() : false;
+  const [switchNotice, setSwitchNotice] = useState<string | null>(null);
+
+  // Auto-switch to next available slug when active slug is sleeping
+  useEffect(() => {
+    if (isActiveSlugSleeping && slugs.length > 0) {
+      const awake = slugs.find(s => !s.sleep_until_ms || s.sleep_until_ms <= Date.now());
+      if (awake && awake.id !== activeSlug?.id) {
+        setActiveSlugId(awake.id);
+        setSwitchNotice(`${activeSlug?.name || 'Your slug'} is recovering from defeat. Switched to ${awake.name}. You can change it in the dropdown.`);
+        setTimeout(() => setSwitchNotice(null), 5000);
+      }
+    }
+  }, [isActiveSlugSleeping, slugs, activeSlug, setActiveSlugId]);
 
   // Fighting States
   const [isFighting, setIsFighting] = useState(false);
@@ -180,6 +193,33 @@ export const CavernArena: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Slug switch notification */}
+      {switchNotice && (
+        <div style={{
+          maxWidth: "980px",
+          margin: "12px auto",
+          padding: "14px 20px",
+          background: "rgba(255, 140, 0, 0.12)",
+          border: "1px solid rgba(255, 140, 0, 0.4)",
+          color: "#FFA500",
+          fontFamily: "'Orbitron', monospace",
+          fontSize: "11px",
+          letterSpacing: "1px",
+          lineHeight: 1.6,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "16px",
+          clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)"
+        }}>
+          <span>⚠ {switchNotice}</span>
+          <button onClick={() => setSwitchNotice(null)} style={{
+            background: "none", border: "none", color: "#FFA500",
+            cursor: "pointer", fontFamily: "'Orbitron', monospace", fontSize: "14px", padding: "0 4px"
+          }}>✕</button>
+        </div>
+      )}
 
       {/* Arena Panels */}
       <div className="hatchery-layout" style={{marginTop: "20px"}}>

@@ -119,22 +119,34 @@ app.post('/api/energy/use', async (req, res) => {
   try {
     const { wallet } = req.body;
     if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
-    if (!rateLimit(wallet + '_energy')) return res.status(429).json({ error: 'Too fast' });
     
-    const energyData = await getEnergy(wallet);
-    if (energyData.energy < 1) {
-      return res.status(403).json({ error: 'No arena energy remaining', energy: 0, maxEnergy: MAX_ENERGY, nextRefillAt: energyData.nextRefillAt });
-    }
+    // First, apply any pending refills
+    await getEnergy(wallet);
     
-    // Atomically deduct 1 energy
-    await energyCollection.updateOne(
-      { wallet },
-      { $inc: { energy: -1 } }
+    // Atomically deduct 1 energy only if energy > 0
+    const result = await energyCollection.findOneAndUpdate(
+      { wallet, energy: { $gte: 1 } },
+      { $inc: { energy: -1 } },
+      { returnDocument: 'after' }
     );
     
-    // Return updated energy
-    const updated = await getEnergy(wallet);
-    res.json(updated);
+    if (!result) {
+      // Either wallet doesn't exist or energy is 0
+      const current = await getEnergy(wallet);
+      return res.status(403).json({ 
+        error: 'No arena energy remaining', 
+        energy: current.energy, 
+        maxEnergy: MAX_ENERGY, 
+        nextRefillAt: current.nextRefillAt 
+      });
+    }
+    
+    // Calculate next refill time from the updated doc
+    const nextRefillAt = result.energy < MAX_ENERGY
+      ? new Date(result.lastRefillAt.getTime() + ENERGY_REFILL_MS).toISOString()
+      : null;
+    
+    res.json({ energy: result.energy, maxEnergy: MAX_ENERGY, nextRefillAt });
   } catch (err) {
     console.error('[API] POST /energy/use error:', err.message);
     res.status(500).json({ error: 'Server error' });

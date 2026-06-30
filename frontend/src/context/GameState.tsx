@@ -590,8 +590,15 @@ export const GameStateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const energyResult = await useArenaEnergy(account.address);
         setArenaEnergy(energyResult.energy);
         setNextEnergyRefillAt(energyResult.nextRefillAt);
-      } catch {
-        return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ['[0.0s] NO ARENA ENERGY. Wait for recharge (1 per hour).'], roundCount: 0 };
+      } catch (err: any) {
+        // Only block if it's genuinely a no-energy response (403)
+        if (err?.message?.includes('No energy') || err?.message?.includes('No arena energy')) {
+          setArenaEnergy(0);
+          return { success: false, isDraw: false, playerHpLeft: 0, enemyHpLeft: 0, coinsEarned: 0, battleLogs: ['[0.0s] NO ARENA ENERGY. Wait for recharge (1 per hour).'], roundCount: 0 };
+        }
+        // For network errors or other issues, refresh energy state but let battle continue
+        console.warn('[Energy] deduct failed, refreshing:', err);
+        refreshEnergy();
       }
     }
 

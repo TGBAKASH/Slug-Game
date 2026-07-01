@@ -21,9 +21,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
-// CORS — allow frontend static site to call API
+// CORS — only allow our frontend domains
+const ALLOWED_ORIGINS = [
+  'https://slug-game-voi8.onrender.com',
+  'https://slug-game.onrender.com',
+  'http://localhost:5173', // local dev
+];
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(200);

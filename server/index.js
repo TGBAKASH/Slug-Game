@@ -3,6 +3,7 @@ import { MongoClient } from 'mongodb';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import compression from 'compression';
 
 /* ═══════════════════════════════════════════════════════════════
    Slugterra Server — Single Render Service
@@ -267,7 +268,22 @@ app.get('/api/health', (req, res) => {
 
 // ─── Serve Frontend (built React app) ───
 const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
-app.use(express.static(frontendPath));
+
+// Enable gzip/brotli compression for all responses
+app.use(compression());
+
+// Sequence frames: aggressive 30-day cache (they never change)
+app.use('/sequence', express.static(path.join(frontendPath, 'sequence'), {
+  maxAge: '30d',
+  immutable: true,
+  etag: true
+}));
+
+// Other static files: 1-day cache
+app.use(express.static(frontendPath, {
+  maxAge: '1d',
+  etag: true
+}));
 
 // SPA fallback — all non-API routes serve index.html
 app.get('{*path}', (req, res) => {

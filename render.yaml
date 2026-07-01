@@ -1,14 +1,39 @@
+# Render Blueprint — two services:
+# 1. Static Site: Frontend (served from global CDN — FAST)
+# 2. Web Service: API only (Node.js, handles coins/energy)
+
 services:
+  # Frontend — Global CDN, no CPU bottleneck
   - type: web
-    name: slugterra
+    name: slug-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    headers:
+      - path: /sequence/*
+        name: Cache-Control
+        value: public, max-age=2592000, immutable
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=86400
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://slug-game.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # Backend API — existing service
+  - type: web
+    name: slug-game
     runtime: node
-    plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: npm install && cd frontend && npm install && npm run build
+    startCommand: node server/index.js
     envVars:
       - key: MONGODB_URI
         sync: false
-      - key: NODE_ENV
-        value: production
+      - key: DB_NAME
+        value: slugterra
       - key: API_SECRET
         generateValue: true

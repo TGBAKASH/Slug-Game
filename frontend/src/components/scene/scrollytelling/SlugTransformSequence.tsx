@@ -11,11 +11,11 @@ const IS_MOBILE =
   typeof window !== "undefined" &&
   (window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
-// All 200 frames for maximum smoothness (WebP ~270KB each, ~54MB total)
-const FRAME_STEP = 1;
-const FRAME_COUNT = TOTAL_FRAMES_ON_DISK; // 200
+// Desktop: all 200 frames. Mobile: 100 frames (halves download on mobile connections)
+const FRAME_STEP = IS_MOBILE ? 2 : 1;
+const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP);
 const EARLY_LOAD_THRESHOLD = 1.0;  // NEVER change — animation ONLY starts after ALL frames loaded
-const MAX_DPR = IS_MOBILE ? 1 : 1.5;
+const MAX_DPR = IS_MOBILE ? 2 : 1.5; // DPR 2 on mobile for sharp display
 const SCRUB_EASE = 0.12;
 const CONCURRENT_LOADS = IS_MOBILE ? 12 : 30;
 

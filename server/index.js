@@ -21,6 +21,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
+// CORS — allow frontend static site to call API
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 // ─── MongoDB Connection ───
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/slugterra';
 const DB_NAME = process.env.DB_NAME || 'slugterra';

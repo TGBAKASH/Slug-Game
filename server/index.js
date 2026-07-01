@@ -269,14 +269,25 @@ app.get('/api/health', (req, res) => {
 // ─── Serve Frontend (built React app) ───
 const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
 
-// Enable gzip/brotli compression for all responses
-app.use(compression());
+// Compression: ONLY for text-based files (HTML, CSS, JS, JSON).
+// NEVER compress images (WebP/PNG/JPG) — they're already compressed,
+// and trying to gzip them wastes CPU and blocks the event loop.
+app.use(compression({
+  filter: (req, res) => {
+    const type = res.getHeader('Content-Type');
+    if (typeof type === 'string' && /image|video|audio|webp|png|jpg|jpeg|gif|woff|woff2/.test(type)) {
+      return false; // skip compression for binary files
+    }
+    return compression.filter(req, res);
+  }
+}));
 
-// Sequence frames: aggressive 30-day cache (they never change)
+// Sequence frames: 30-day cache, no compression needed (WebP is already compressed)
 app.use('/sequence', express.static(path.join(frontendPath, 'sequence'), {
   maxAge: '30d',
   immutable: true,
-  etag: true
+  etag: false,       // skip ETag computation for faster response
+  lastModified: false // skip stat() call
 }));
 
 // Other static files: 1-day cache

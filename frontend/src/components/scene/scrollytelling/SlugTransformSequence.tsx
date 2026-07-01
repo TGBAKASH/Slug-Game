@@ -228,12 +228,13 @@ export const SlugTransformSequence: React.FC = () => {
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050505] h-screen w-full" style={{ cursor: 'none' }}>
           <div className="flex flex-col items-center justify-center p-8">
             <h1 
-              className="font-orbitron text-4xl sm:text-6xl md:text-7xl font-black mb-4 tracking-widest drop-shadow-[0_0_20px_rgba(74,222,128,0.3)] animate-title-glow"
+              className="font-orbitron text-4xl sm:text-6xl md:text-7xl font-black mb-4 tracking-widest animate-title-glow"
               style={{ 
-                background: 'linear-gradient(135deg, #F5C563, #5ED4D4, #C084FC, #4ADE80)',
+                background: 'linear-gradient(135deg, #FFFFFF 0%, #B0E0FF 40%, #5ED4D4 70%, #FFFFFF 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
+                filter: 'drop-shadow(0 0 25px rgba(94, 212, 212, 0.4))',
               }}
             >
               SLUGTERRA
@@ -245,7 +246,7 @@ export const SlugTransformSequence: React.FC = () => {
           <div className="w-[240px] sm:w-[300px] h-[2px] relative overflow-hidden rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <motion.div
               className="absolute top-0 left-0 h-full"
-              style={{ background: 'linear-gradient(90deg, #F5C563, #5ED4D4, #C084FC, #4ADE80)', boxShadow: '0 0 12px rgba(94, 212, 212, 0.5)' }}
+              style={{ background: 'linear-gradient(90deg, rgba(94,212,212,0.3), #5ED4D4, #B0E0FF, #FFFFFF)', boxShadow: '0 0 15px rgba(94, 212, 212, 0.6)' }}
               initial={loaderInitial}
               animate={loaderAnimate}
               transition={loaderTransition}
@@ -385,12 +386,7 @@ export const SlugTransformSequence: React.FC = () => {
                 >
                   [ ⬡ ENTER ARENA ]
                 </motion.button>
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent("switch-tab", { detail: "command" }))}
-                  className="font-inter text-xs sm:text-sm transition-colors pointer-events-auto cursor-pointer text-white/40 hover:text-white/80"
-                >
-                  [ View Arsenal → ]
-                </button>
+
               </div>
             </TextBeat>
           </div>

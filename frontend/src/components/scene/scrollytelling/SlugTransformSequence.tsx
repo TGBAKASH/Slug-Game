@@ -11,9 +11,9 @@ const IS_MOBILE =
   typeof window !== "undefined" &&
   (window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
-// Desktop: every 2nd frame (100 frames). Mobile: every 2nd (100 frames).
-const FRAME_STEP = 2;
-const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP); // 100
+// All 200 frames for maximum smoothness (WebP ~270KB each, ~54MB total)
+const FRAME_STEP = 1;
+const FRAME_COUNT = TOTAL_FRAMES_ON_DISK; // 200
 const EARLY_LOAD_THRESHOLD = 1.0;  // NEVER change — animation ONLY starts after ALL frames loaded
 const MAX_DPR = IS_MOBILE ? 1 : 1.5;
 const SCRUB_EASE = 0.12; // simple lerp factor — no velocity, no bounce

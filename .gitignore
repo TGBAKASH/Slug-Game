@@ -6,8 +6,13 @@ frontend/dist/
 
 # Environment
 .env
-.env.local
-.env.production
+.env.*
+frontend/.env
+frontend/.env.*
+
+# Unused assets
+frontend/public/images/slug_*.png
+frontend/public/slug_palettes.png
 
 # Sensitive
 *.pem

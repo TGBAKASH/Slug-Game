@@ -59,7 +59,9 @@ export const SlugTransformSequence: React.FC = () => {
       new Promise((resolve) => {
         if (cancelled) { resolve(); return; }
         const img = new Image();
-        img.src = `/sequence/frame_${frameIdx.toString().padStart(4, "0")}.webp`;
+        // Load frames from CDN static site (fast) instead of Express server (0.1 CPU)
+        const CDN = import.meta.env.VITE_CDN_URL || '';
+        img.src = `${CDN}/sequence/frame_${frameIdx.toString().padStart(4, "0")}.webp`;
 
         const done = () => {
           if (cancelled) { resolve(); return; }

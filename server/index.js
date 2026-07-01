@@ -49,6 +49,8 @@ const apiLimiter = rateLimit({
 
 // CORS — only allow our frontend domains
 const ALLOWED_ORIGINS = [
+  'https://blockchain-games.site',
+  'https://www.blockchain-games.site',
   'https://slugterra.akashweb333.workers.dev',
   'https://slugterra.onrender.com',
   'https://slug-game.onrender.com',

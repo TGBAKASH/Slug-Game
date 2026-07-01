@@ -102,6 +102,14 @@ const ENERGY_REFILL_MS = 3600000; // 1 hour per energy point
 // Simple in-memory rate limiter (per wallet, supplements IP rate limit)
 const lastRequest = new Map();
 
+// Clean up stale entries every 10 minutes to prevent memory leak
+setInterval(() => {
+  const cutoff = Date.now() - 60000; // remove entries older than 1 min
+  for (const [key, time] of lastRequest) {
+    if (time < cutoff) lastRequest.delete(key);
+  }
+}, 600000);
+
 function walletRateLimit(wallet) {
   const now = Date.now();
   const last = lastRequest.get(wallet) || 0;
@@ -160,10 +168,10 @@ async function getBalance(wallet) {
 // ─── API Routes ───
 
 // GET /api/energy/:wallet — Get current arena energy
-app.get('/api/energy/:wallet', async (req, res) => {
+app.get('/api/energy/:wallet', apiLimiter, async (req, res) => {
   try {
     const { wallet } = req.params;
-    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (!wallet || typeof wallet !== 'string' || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
     const energy = await getEnergy(wallet);
     res.json(energy);
   } catch (err) {
@@ -176,7 +184,7 @@ app.get('/api/energy/:wallet', async (req, res) => {
 app.post('/api/energy/use', apiLimiter, async (req, res) => {
   try {
     const { wallet, _ts, _sig } = req.body;
-    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (!wallet || typeof wallet !== 'string' || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
     if (!verifySignature(req.body)) return res.status(403).json({ error: 'Invalid signature' });
     
     // First, apply any pending refills
@@ -213,10 +221,10 @@ app.post('/api/energy/use', apiLimiter, async (req, res) => {
 });
 
 // GET /api/coins/:wallet — Get balance
-app.get('/api/coins/:wallet', async (req, res) => {
+app.get('/api/coins/:wallet', apiLimiter, async (req, res) => {
   try {
     const { wallet } = req.params;
-    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (!wallet || typeof wallet !== 'string' || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
     
     const doc = await getBalance(wallet);
     res.json({ balance: doc.balance });
@@ -231,8 +239,8 @@ app.post('/api/coins/earn', apiLimiter, async (req, res) => {
   try {
     const { wallet, amount, reason, _ts, _sig } = req.body;
     
-    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
-    if (!amount || amount <= 0 || amount > MAX_EARN_PER_BATTLE) return res.status(400).json({ error: 'Invalid amount' });
+    if (!wallet || typeof wallet !== 'string' || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (typeof amount !== 'number' || amount <= 0 || amount > MAX_EARN_PER_BATTLE) return res.status(400).json({ error: 'Invalid amount' });
     if (!verifySignature(req.body)) return res.status(403).json({ error: 'Invalid signature' });
     if (!walletRateLimit(wallet)) return res.status(429).json({ error: 'Too fast' });
     
@@ -263,8 +271,8 @@ app.post('/api/coins/spend', apiLimiter, async (req, res) => {
   try {
     const { wallet, amount, reason, slugLevel, _ts, _sig } = req.body;
     
-    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
-    if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+    if (!wallet || typeof wallet !== 'string' || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (typeof amount !== 'number' || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
     if (!verifySignature(req.body)) return res.status(403).json({ error: 'Invalid signature' });
     if (!walletRateLimit(wallet)) return res.status(429).json({ error: 'Too fast' });
     
@@ -308,10 +316,10 @@ app.post('/api/coins/spend', apiLimiter, async (req, res) => {
 });
 
 // POST /api/coins/init — Initialize wallet (idempotent)
-app.post('/api/coins/init', async (req, res) => {
+app.post('/api/coins/init', apiLimiter, async (req, res) => {
   try {
     const { wallet } = req.body;
-    if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (!wallet || typeof wallet !== 'string' || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
     
     const doc = await getBalance(wallet);
     res.json({ balance: doc.balance });
@@ -323,7 +331,7 @@ app.post('/api/coins/init', async (req, res) => {
 
 // GET /api/health — Health check for Render
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+  res.json({ status: 'ok' });
 });
 
 // ─── Serve Frontend (built React app) ───

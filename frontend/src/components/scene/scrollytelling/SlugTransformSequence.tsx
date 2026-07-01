@@ -11,12 +11,12 @@ const IS_MOBILE =
   typeof window !== "undefined" &&
   (window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
-// Desktop: load ALL 200 frames for maximum smoothness. Mobile: every 2nd (100 frames).
-const FRAME_STEP = IS_MOBILE ? 2 : 1;
-const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP);
+// Desktop: every 2nd frame (100 frames). Mobile: every 2nd (100 frames).
+const FRAME_STEP = 2;
+const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP); // 100
 const EARLY_LOAD_THRESHOLD = 1.0;  // NEVER change — animation ONLY starts after ALL frames loaded
 const MAX_DPR = IS_MOBILE ? 1 : 1.5;
-const SCRUB_EASE = IS_MOBILE ? 0.12 : 0.08; // lower = smoother momentum
+const SCRUB_EASE = 0.12; // simple lerp factor — no velocity, no bounce
 const CONCURRENT_LOADS = IS_MOBILE ? 8 : 16;
 
 const REDUCED_MOTION =
@@ -187,7 +187,6 @@ export const SlugTransformSequence: React.FC = () => {
     };
 
     let current = scrollYProgress.get();
-    let velocity = 0;
     smoothProgress.set(current);
 
     const loop = () => {
@@ -195,15 +194,9 @@ export const SlugTransformSequence: React.FC = () => {
       if (REDUCED_MOTION) {
         current = target;
       } else {
-        const diff = target - current;
-        // Smooth momentum: track velocity and apply damping
-        velocity = velocity * 0.85 + diff * SCRUB_EASE;
-        current += velocity;
-        // Snap when very close
-        if (Math.abs(diff) < 0.0001 && Math.abs(velocity) < 0.00005) {
-          current = target;
-          velocity = 0;
-        }
+        // Simple lerp — can never overshoot or bounce back
+        current += (target - current) * SCRUB_EASE;
+        if (Math.abs(target - current) < 0.0005) current = target;
       }
       smoothProgress.set(current);
       draw(current);

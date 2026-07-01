@@ -29,6 +29,10 @@ const MainAppContent: React.FC = () => {
   const isConnected = !!account;
 
   useEffect(() => {
+    // Skip custom cursor on touch/mobile devices
+    const isTouch = window.matchMedia('(hover: none)').matches || window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch) return;
+
     const cursor = document.getElementById('cursor');
     const cursorRing = document.getElementById('cursor-ring');
     if (!cursor || !cursorRing) return;

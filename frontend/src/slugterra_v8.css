@@ -47,29 +47,37 @@
   .animate-fade-rise-delay   { animation: fade-rise 0.8s 0.2s ease-out both; }
   .animate-fade-rise-delay-2 { animation: fade-rise 0.8s 0.4s ease-out both; }
 
-  #cursor { position: fixed; width: 8px; height: 8px; background: #000000; border-radius: 50%; pointer-events: none; z-index: 99999; transform: translate(-50%, -50%); transition: transform 0.1s, width 0.2s, height 0.2s; mix-blend-mode: normal; box-shadow: none; left: -100px; top: -100px; }
-  #cursor-ring { position: fixed; width: 36px; height: 36px; border: 1px solid rgba(0,0,0,0.25); border-radius: 50%; pointer-events: none; z-index: 99998; transform: translate(-50%, -50%); transition: transform 0.15s ease-out, width 0.3s, height 0.3s; left: -100px; top: -100px; }
+  /* ── Custom cursor: DESKTOP ONLY (devices with a mouse) ── */
+  @media (hover: hover) and (pointer: fine) {
+    #cursor { position: fixed; width: 8px; height: 8px; background: #000000; border-radius: 50%; pointer-events: none; z-index: 99999; transform: translate(-50%, -50%); transition: transform 0.1s, width 0.2s, height 0.2s; mix-blend-mode: normal; box-shadow: none; left: -100px; top: -100px; }
+    #cursor-ring { position: fixed; width: 36px; height: 36px; border: 1px solid rgba(0,0,0,0.25); border-radius: 50%; pointer-events: none; z-index: 99998; transform: translate(-50%, -50%); transition: transform 0.15s ease-out, width 0.3s, height 0.3s; left: -100px; top: -100px; }
 
-  /* Dashboard only (white dot, white ring) */
-  body.dashboard-active #cursor { background: #FFFFFF; box-shadow: 0 0 10px rgba(255,255,255,0.8); }
-  body.dashboard-active #cursor-ring { border-color: rgba(255,255,255,0.8); }
+    /* Dashboard only (white dot, white ring) */
+    body.dashboard-active #cursor { background: #FFFFFF; box-shadow: 0 0 10px rgba(255,255,255,0.8); }
+    body.dashboard-active #cursor-ring { border-color: rgba(255,255,255,0.8); }
 
-  /* Hide native cursor on app elements only — SDK modals/dialogs keep default cursor */
-  body,
-  #app-shell,
-  #app-shell *,
-  #app-header,
-  #app-header *,
-  #bottom-nav,
-  #bottom-nav *,
-  canvas { cursor: none !important; }
-  /* Restore cursor on wallet gate and any SDK portals/overlays */
-  .wallet-gate, .wallet-gate * { cursor: auto !important; }
-  .wallet-gate button, .wallet-gate [role="button"] { cursor: pointer !important; }
-  [data-radix-portal], [data-radix-portal] * { cursor: auto !important; }
-  [data-radix-portal] button, [data-radix-portal] [role="button"] { cursor: pointer !important; }
-  [role="dialog"], [role="dialog"] * { cursor: auto !important; }
-  [role="dialog"] button { cursor: pointer !important; }
+    /* Hide native cursor on app elements only — SDK modals/dialogs keep default cursor */
+    body,
+    #app-shell,
+    #app-shell *,
+    #app-header,
+    #app-header *,
+    #bottom-nav,
+    #bottom-nav *,
+    canvas { cursor: none !important; }
+    /* Restore cursor on wallet gate and any SDK portals/overlays */
+    .wallet-gate, .wallet-gate * { cursor: auto !important; }
+    .wallet-gate button, .wallet-gate [role="button"] { cursor: pointer !important; }
+    [data-radix-portal], [data-radix-portal] * { cursor: auto !important; }
+    [data-radix-portal] button, [data-radix-portal] [role="button"] { cursor: pointer !important; }
+    [role="dialog"], [role="dialog"] * { cursor: auto !important; }
+    [role="dialog"] button { cursor: pointer !important; }
+  }
+
+  /* Mobile: hide custom cursor elements entirely */
+  @media (hover: none), (pointer: coarse) {
+    #cursor, #cursor-ring { display: none !important; }
+  }
 
   #bg-grid { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px); background-size: 60px 60px; z-index: 0; pointer-events: none; }
   #scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); z-index: 1; pointer-events: none; }
@@ -1841,9 +1849,11 @@
   }
   [data-theme="dark"] body { background: #0A0A0A; color: #F0EDE8; }
 
-  /* Dark: cursor */
-  [data-theme="dark"] #cursor { background: #F0EDE8 !important; }
-  [data-theme="dark"] #cursor-ring { border-color: rgba(240,237,232,0.25) !important; }
+  /* Dark: cursor (desktop only) */
+  @media (hover: hover) and (pointer: fine) {
+    [data-theme="dark"] #cursor { background: #F0EDE8 !important; }
+    [data-theme="dark"] #cursor-ring { border-color: rgba(240,237,232,0.25) !important; }
+  }
 
   /* Dark: bg-grid */
   [data-theme="dark"] #bg-grid { background-image:

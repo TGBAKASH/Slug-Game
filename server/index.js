@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import compression from 'compression';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 /* ═══════════════════════════════════════════════════════════════
    Slugterra Server — Single Render Service
@@ -19,7 +21,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10kb' })); // Block oversized payloads
+
+// Security headers (XSS, clickjacking, MIME sniffing protection)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // frontend handles CSP
+}));
+
+// Global rate limit: 100 requests per 15 min per IP
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, slow down' },
+}));
+
+// Stricter rate limit for state-changing API routes
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,             // 20 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'API rate limit exceeded' },
+});
 
 // CORS — only allow our frontend domains
 const ALLOWED_ORIGINS = [
@@ -70,15 +96,26 @@ const RATE_LIMIT_MS = 2000;      // 2 seconds between requests per wallet
 const MAX_ENERGY = 10;
 const ENERGY_REFILL_MS = 3600000; // 1 hour per energy point
 
-// Simple in-memory rate limiter
+// Simple in-memory rate limiter (per wallet, supplements IP rate limit)
 const lastRequest = new Map();
 
-function rateLimit(wallet) {
+function walletRateLimit(wallet) {
   const now = Date.now();
   const last = lastRequest.get(wallet) || 0;
   if (now - last < RATE_LIMIT_MS) return false;
   lastRequest.set(wallet, now);
   return true;
+}
+
+// HMAC request verification — prevents API abuse from outside the app
+function verifySignature(body) {
+  const { _ts, _sig, ...payload } = body;
+  if (!_ts || !_sig) return false;
+  // Reject requests older than 30 seconds
+  if (Math.abs(Date.now() - _ts) > 30000) return false;
+  const message = JSON.stringify(payload) + _ts;
+  const expected = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(_sig, 'hex'), Buffer.from(expected, 'hex'));
 }
 
 async function getEnergy(wallet) {
@@ -132,11 +169,12 @@ app.get('/api/energy/:wallet', async (req, res) => {
   }
 });
 
-// POST /api/energy/use — Deduct 1 energy before a PvE battle (win or lose)
-app.post('/api/energy/use', async (req, res) => {
+// POST /api/energy/use — Deduct 1 energy before a PvE battle
+app.post('/api/energy/use', apiLimiter, async (req, res) => {
   try {
-    const { wallet } = req.body;
+    const { wallet, _ts, _sig } = req.body;
     if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
+    if (!verifySignature(req.body)) return res.status(403).json({ error: 'Invalid signature' });
     
     // First, apply any pending refills
     await getEnergy(wallet);
@@ -186,13 +224,14 @@ app.get('/api/coins/:wallet', async (req, res) => {
 });
 
 // POST /api/coins/earn — Earn coins (PvE win, spin, premium mint bonus)
-app.post('/api/coins/earn', async (req, res) => {
+app.post('/api/coins/earn', apiLimiter, async (req, res) => {
   try {
-    const { wallet, amount, reason } = req.body;
+    const { wallet, amount, reason, _ts, _sig } = req.body;
     
     if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
     if (!amount || amount <= 0 || amount > MAX_EARN_PER_BATTLE) return res.status(400).json({ error: 'Invalid amount' });
-    if (!rateLimit(wallet)) return res.status(429).json({ error: 'Too fast' });
+    if (!verifySignature(req.body)) return res.status(403).json({ error: 'Invalid signature' });
+    if (!walletRateLimit(wallet)) return res.status(429).json({ error: 'Too fast' });
     
     // Validate reason
     const validReasons = ['pve_win', 'spin_coins', 'premium_mint_bonus', 'ascend_refund'];
@@ -217,13 +256,14 @@ app.post('/api/coins/earn', async (req, res) => {
 });
 
 // POST /api/coins/spend — Spend coins (level up, awaken)
-app.post('/api/coins/spend', async (req, res) => {
+app.post('/api/coins/spend', apiLimiter, async (req, res) => {
   try {
-    const { wallet, amount, reason, slugLevel } = req.body;
+    const { wallet, amount, reason, slugLevel, _ts, _sig } = req.body;
     
     if (!wallet || wallet.length < 10) return res.status(400).json({ error: 'Invalid wallet' });
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-    if (!rateLimit(wallet)) return res.status(429).json({ error: 'Too fast' });
+    if (!verifySignature(req.body)) return res.status(403).json({ error: 'Invalid signature' });
+    if (!walletRateLimit(wallet)) return res.status(429).json({ error: 'Too fast' });
     
     // Validate level-up cost matches formula
     if (reason === 'level_up') {

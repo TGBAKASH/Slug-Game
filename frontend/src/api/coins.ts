@@ -5,6 +5,8 @@
    being stored in tamper-prone localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
+import { signRequest } from './sign';
+
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface CoinsResponse {
@@ -44,9 +46,10 @@ export async function earnCoins(
   amount: number,
   reason: 'pve_win' | 'spin_coins' | 'premium_mint_bonus' | 'ascend_refund'
 ): Promise<number> {
+  const signed = await signRequest({ wallet, amount: Math.floor(amount), reason });
   const data = await apiCall('/earn', {
     method: 'POST',
-    body: JSON.stringify({ wallet, amount: Math.floor(amount), reason }),
+    body: JSON.stringify(signed),
   });
   return data.balance;
 }
@@ -58,9 +61,10 @@ export async function spendCoins(
   reason: 'level_up' | 'awaken',
   slugLevel?: number
 ): Promise<number> {
+  const signed = await signRequest({ wallet, amount: Math.floor(amount), reason, slugLevel });
   const data = await apiCall('/spend', {
     method: 'POST',
-    body: JSON.stringify({ wallet, amount: Math.floor(amount), reason, slugLevel }),
+    body: JSON.stringify(signed),
   });
   return data.balance;
 }

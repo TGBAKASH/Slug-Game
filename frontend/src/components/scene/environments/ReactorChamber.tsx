@@ -37,9 +37,7 @@ const MODEL_PATHS: Record<number, string> = {
 const GUN_PATH = '/models/gunslug.glb';
 const SHELL_PATH = '/models/slug_shell.glb';
 
-// Preload
-try { useGLTF.preload(SHELL_PATH); } catch (_) { /* ok */ }
-try { useGLTF.preload(GUN_PATH); } catch (_) { /* ok */ }
+
 
 type Phase = 'vortex' | 'compress' | 'flash' | 'reveal' | 'stats' | 'done';
 

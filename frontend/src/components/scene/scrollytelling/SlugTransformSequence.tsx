@@ -16,8 +16,8 @@ const FRAME_STEP = 1;
 const FRAME_COUNT = TOTAL_FRAMES_ON_DISK; // 200
 const EARLY_LOAD_THRESHOLD = 1.0;  // NEVER change — animation ONLY starts after ALL frames loaded
 const MAX_DPR = IS_MOBILE ? 1 : 1.5;
-const SCRUB_EASE = 0.12; // simple lerp factor — no velocity, no bounce
-const CONCURRENT_LOADS = IS_MOBILE ? 8 : 16;
+const SCRUB_EASE = 0.12;
+const CONCURRENT_LOADS = IS_MOBILE ? 12 : 30;
 
 const REDUCED_MOTION =
   typeof window !== "undefined" &&
@@ -34,7 +34,6 @@ export const SlugTransformSequence: React.FC = () => {
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scrollContainer, setScrollContainer] = useState<HTMLElement | null>(null);
-  const [loadingPhase, setLoadingPhase] = useState<'server' | 'frames' | 'done'>('server');
 
   useEffect(() => {
     setScrollContainer(document.getElementById("app-shell"));
@@ -50,7 +49,7 @@ export const SlugTransformSequence: React.FC = () => {
   const indicatorOpacity = useTransform(smoothProgress, [0, 0.08], [1, 0]);
   const scrubberScaleY = useTransform(smoothProgress, [0, 1], [0, 1]);
 
-  // ---- Throttled frame loader with server warm-up ----
+  // ---- Parallel frame loader ----
   useEffect(() => {
     let cancelled = false;
     let loaded = 0;
@@ -71,7 +70,6 @@ export const SlugTransformSequence: React.FC = () => {
           }
           if (!isLoadedRef.current && loaded >= FRAME_COUNT * EARLY_LOAD_THRESHOLD) {
             isLoadedRef.current = true;
-            setLoadingPhase('done');
             setIsLoaded(true);
           }
           resolve();
@@ -85,38 +83,26 @@ export const SlugTransformSequence: React.FC = () => {
           }
           if (!isLoadedRef.current && loaded >= FRAME_COUNT * EARLY_LOAD_THRESHOLD) {
             isLoadedRef.current = true;
-            setLoadingPhase('done');
             setIsLoaded(true);
           }
           resolve();
         };
       });
 
-    // Warm up the server by loading the first frame, then bulk load the rest
-    const warmUpThenLoad = async () => {
-      // Ping the server with the first frame to wake it up (Render cold start)
-      setLoadingPhase('server');
-      await loadOne(1, 0);
-      if (cancelled) return;
-
-      // Server is awake, now bulk load remaining frames
-      setLoadingPhase('frames');
-      const queue: { frameIdx: number; slotIdx: number }[] = [];
-      for (let slot = 1; slot < FRAME_COUNT; slot++) {
-        queue.push({ frameIdx: slot * FRAME_STEP + 1, slotIdx: slot });
+    // Load all frames in parallel immediately
+    const queue: { frameIdx: number; slotIdx: number }[] = [];
+    for (let slot = 0; slot < FRAME_COUNT; slot++) {
+      queue.push({ frameIdx: slot * FRAME_STEP + 1, slotIdx: slot });
+    }
+    let running = 0;
+    const next = () => {
+      while (running < CONCURRENT_LOADS && queue.length > 0 && !cancelled) {
+        const item = queue.shift()!;
+        running++;
+        loadOne(item.frameIdx, item.slotIdx).then(() => { running--; next(); });
       }
-      let running = 0;
-      const next = () => {
-        while (running < CONCURRENT_LOADS && queue.length > 0 && !cancelled) {
-          const item = queue.shift()!;
-          running++;
-          loadOne(item.frameIdx, item.slotIdx).then(() => { running--; next(); });
-        }
-      };
-      next();
     };
-
-    warmUpThenLoad();
+    next();
 
     framesRef.current = frames;
     return () => { cancelled = true; };
@@ -228,46 +214,32 @@ export const SlugTransformSequence: React.FC = () => {
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050505] h-screen w-full" style={{ cursor: 'none' }}>
           <div className="flex flex-col items-center justify-center p-8">
             <h1 
-              className="font-orbitron text-4xl sm:text-6xl md:text-7xl font-black mb-4 tracking-widest animate-title-glow"
+              className="font-orbitron text-4xl sm:text-6xl md:text-7xl font-black mb-4 tracking-widest"
               style={{ 
-                background: 'linear-gradient(135deg, #FFFFFF 0%, #B0E0FF 40%, #5ED4D4 70%, #FFFFFF 100%)',
+                background: 'linear-gradient(135deg, #00D4FF 0%, #7B61FF 50%, #FF3CAC 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-                filter: 'drop-shadow(0 0 25px rgba(94, 212, 212, 0.4))',
+                filter: 'drop-shadow(0 0 30px rgba(123, 97, 255, 0.5))',
               }}
             >
               SLUGTERRA
             </h1>
-            <p className="font-inter tracking-widest text-xs sm:text-sm uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]" style={{ color: 'rgba(94, 212, 212, 0.6)' }}>
+            <p className="font-inter tracking-widest text-xs sm:text-sm uppercase" style={{ color: 'rgba(123, 97, 255, 0.5)' }}>
               Entering the Caverns...
             </p>
           </div>
           <div className="w-[240px] sm:w-[300px] h-[2px] relative overflow-hidden rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <motion.div
               className="absolute top-0 left-0 h-full"
-              style={{ background: 'linear-gradient(90deg, rgba(94,212,212,0.3), #5ED4D4, #B0E0FF, #FFFFFF)', boxShadow: '0 0 15px rgba(94, 212, 212, 0.6)' }}
+              style={{ background: 'linear-gradient(90deg, #00D4FF, #7B61FF, #FF3CAC)', boxShadow: '0 0 15px rgba(123, 97, 255, 0.6)' }}
               initial={loaderInitial}
               animate={loaderAnimate}
               transition={loaderTransition}
             />
           </div>
-          <div className="font-orbitron text-[10px] tracking-[0.2em]" style={{ color: 'rgba(192, 132, 252, 0.4)' }}>
-            {loadingPhase === 'server'
-              ? 'INITIALIZING...'
-              : `LOADING FRAMES ${Math.floor(loadProgress)}%`
-            }
-          </div>
-          <div 
-            className="mt-8 px-5 py-3 rounded-lg max-w-xs text-center mx-4"
-            style={{ 
-              background: 'rgba(255, 255, 255, 0.04)', 
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-          >
-            <p className="font-inter text-[11px] leading-relaxed" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
-              ⚡ First visit may take a moment while assets are cached. Subsequent loads will be instant.
-            </p>
+          <div className="font-orbitron text-[10px] tracking-[0.2em]" style={{ color: 'rgba(123, 97, 255, 0.5)' }}>
+            {Math.floor(loadProgress)}%
           </div>
         </div>
       )}

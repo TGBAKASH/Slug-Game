@@ -121,8 +121,9 @@ const MainAppContent: React.FC = () => {
     <div className="bg-transparent text-on-background font-body-md h-screen w-screen overflow-hidden flex flex-col selection:bg-primary-container selection:text-on-primary-container relative">
       <div id="cursor" ref={cursorRef}></div>
       <div id="cursor-ring" ref={cursorRingRef}></div>
-      <BackgroundParticles />
-      <GlobalCanvas activeTab={activeTab} />
+      {/* Skip heavy 3D/particle systems on Dashboard — the scroll animation has its own visuals */}
+      {activeTab !== "dashboard" && <BackgroundParticles />}
+      {activeTab !== "dashboard" && <GlobalCanvas activeTab={activeTab} />}
       
       {/* Top Floating HUD: Aethera Style */}
       <header id="app-header">

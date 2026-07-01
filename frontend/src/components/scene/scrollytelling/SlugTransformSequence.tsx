@@ -5,12 +5,19 @@ import { ParticleCanvas } from "./ParticleCanvas";
 import "./scrollytelling.css";
 
 const TOTAL_FRAMES_ON_DISK = 200;
-const FRAME_STEP = 2;         // load every 2nd frame — 100 frames (~192MB)
-const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP); // 100 frames
+
+// Detect mobile once
+const IS_MOBILE =
+  typeof window !== "undefined" &&
+  (window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+
+// Mobile: load every 4th frame (50 frames). Desktop: every 2nd (100 frames).
+const FRAME_STEP = IS_MOBILE ? 4 : 2;
+const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP);
 const EARLY_LOAD_THRESHOLD = 1.0;  // only show animation after ALL frames loaded
-const MAX_DPR = 1.5;
-const SCRUB_EASE = 0.18;
-const CONCURRENT_LOADS = 12;  // aggressive parallel fetches
+const MAX_DPR = IS_MOBILE ? 1 : 1.5;
+const SCRUB_EASE = IS_MOBILE ? 0.12 : 0.08; // lower = smoother momentum
+const CONCURRENT_LOADS = IS_MOBILE ? 6 : 12;
 
 const REDUCED_MOTION =
   typeof window !== "undefined" &&
@@ -27,6 +34,7 @@ export const SlugTransformSequence: React.FC = () => {
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scrollContainer, setScrollContainer] = useState<HTMLElement | null>(null);
+  const [loadingPhase, setLoadingPhase] = useState<'server' | 'frames' | 'done'>('server');
 
   useEffect(() => {
     setScrollContainer(document.getElementById("app-shell"));
@@ -42,7 +50,7 @@ export const SlugTransformSequence: React.FC = () => {
   const indicatorOpacity = useTransform(smoothProgress, [0, 0.08], [1, 0]);
   const scrubberScaleY = useTransform(smoothProgress, [0, 1], [0, 1]);
 
-  // ---- Throttled frame loader (no createImageBitmap — raw HTMLImageElement is fastest) ----
+  // ---- Throttled frame loader with server warm-up ----
   useEffect(() => {
     let cancelled = false;
     let loaded = 0;
@@ -58,10 +66,12 @@ export const SlugTransformSequence: React.FC = () => {
           if (cancelled) { resolve(); return; }
           frames[slotIdx] = img;
           loaded++;
-          setLoadProgress((loaded / FRAME_COUNT) * 100);
-          // Start showing animation early once threshold is met
+          if (IS_MOBILE ? loaded % 5 === 0 || loaded >= FRAME_COUNT : true) {
+            setLoadProgress((loaded / FRAME_COUNT) * 100);
+          }
           if (!isLoadedRef.current && loaded >= FRAME_COUNT * EARLY_LOAD_THRESHOLD) {
             isLoadedRef.current = true;
+            setLoadingPhase('done');
             setIsLoaded(true);
           }
           resolve();
@@ -70,29 +80,43 @@ export const SlugTransformSequence: React.FC = () => {
         img.onload = done;
         img.onerror = () => {
           loaded++;
-          setLoadProgress((loaded / FRAME_COUNT) * 100);
+          if (IS_MOBILE ? loaded % 5 === 0 || loaded >= FRAME_COUNT : true) {
+            setLoadProgress((loaded / FRAME_COUNT) * 100);
+          }
           if (!isLoadedRef.current && loaded >= FRAME_COUNT * EARLY_LOAD_THRESHOLD) {
             isLoadedRef.current = true;
+            setLoadingPhase('done');
             setIsLoaded(true);
           }
           resolve();
         };
       });
 
-    // Build queue: every FRAME_STEP-th frame (1, 3, 5, ... or 1, 2, 3... based on step)
-    const queue: { frameIdx: number; slotIdx: number }[] = [];
-    for (let slot = 0; slot < FRAME_COUNT; slot++) {
-      queue.push({ frameIdx: slot * FRAME_STEP + 1, slotIdx: slot });
-    }
-    let running = 0;
-    const next = () => {
-      while (running < CONCURRENT_LOADS && queue.length > 0 && !cancelled) {
-        const item = queue.shift()!;
-        running++;
-        loadOne(item.frameIdx, item.slotIdx).then(() => { running--; next(); });
+    // Warm up the server by loading the first frame, then bulk load the rest
+    const warmUpThenLoad = async () => {
+      // Ping the server with the first frame to wake it up (Render cold start)
+      setLoadingPhase('server');
+      await loadOne(1, 0);
+      if (cancelled) return;
+
+      // Server is awake, now bulk load remaining frames
+      setLoadingPhase('frames');
+      const queue: { frameIdx: number; slotIdx: number }[] = [];
+      for (let slot = 1; slot < FRAME_COUNT; slot++) {
+        queue.push({ frameIdx: slot * FRAME_STEP + 1, slotIdx: slot });
       }
+      let running = 0;
+      const next = () => {
+        while (running < CONCURRENT_LOADS && queue.length > 0 && !cancelled) {
+          const item = queue.shift()!;
+          running++;
+          loadOne(item.frameIdx, item.slotIdx).then(() => { running--; next(); });
+        }
+      };
+      next();
     };
-    next();
+
+    warmUpThenLoad();
 
     framesRef.current = frames;
     return () => { cancelled = true; };
@@ -163,14 +187,23 @@ export const SlugTransformSequence: React.FC = () => {
     };
 
     let current = scrollYProgress.get();
+    let velocity = 0;
     smoothProgress.set(current);
 
     const loop = () => {
       const target = scrollYProgress.get();
-      if (REDUCED_MOTION) { current = target; }
-      else {
-        current += (target - current) * SCRUB_EASE;
-        if (Math.abs(target - current) < 0.0003) current = target;
+      if (REDUCED_MOTION) {
+        current = target;
+      } else {
+        const diff = target - current;
+        // Smooth momentum: track velocity and apply damping
+        velocity = velocity * 0.85 + diff * SCRUB_EASE;
+        current += velocity;
+        // Snap when very close
+        if (Math.abs(diff) < 0.0001 && Math.abs(velocity) < 0.00005) {
+          current = target;
+          velocity = 0;
+        }
       }
       smoothProgress.set(current);
       draw(current);
@@ -184,7 +217,7 @@ export const SlugTransformSequence: React.FC = () => {
   const loaderInitial = { width: 0 };
   const loaderAnimate = { width: `${loadProgress}%` };
   const loaderTransition = { ease: "easeOut", duration: 0.3 } as const;
-  const scrollTrackStyle = { height: "380vh" };
+  const scrollTrackStyle = { height: IS_MOBILE ? "300vh" : "380vh" };
   const badgeInitial = { opacity: 0, scale: 0.8, y: 10 };
   const badgeInView = { opacity: 1, scale: 1, y: 0 };
   const badgeViewport = { once: true };
@@ -202,7 +235,7 @@ export const SlugTransformSequence: React.FC = () => {
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050505] h-screen w-full" style={{ cursor: 'none' }}>
           <div className="flex flex-col items-center justify-center p-8">
             <h1 
-              className="font-orbitron text-6xl sm:text-7xl font-black mb-4 tracking-widest drop-shadow-[0_0_20px_rgba(74,222,128,0.3)] animate-title-glow"
+              className="font-orbitron text-4xl sm:text-6xl md:text-7xl font-black mb-4 tracking-widest drop-shadow-[0_0_20px_rgba(74,222,128,0.3)] animate-title-glow"
               style={{ 
                 background: 'linear-gradient(135deg, #F5C563, #5ED4D4, #C084FC, #4ADE80)',
                 WebkitBackgroundClip: 'text',
@@ -212,11 +245,11 @@ export const SlugTransformSequence: React.FC = () => {
             >
               SLUGTERRA
             </h1>
-            <p className="font-inter tracking-widest text-sm uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]" style={{ color: 'rgba(94, 212, 212, 0.6)' }}>
+            <p className="font-inter tracking-widest text-xs sm:text-sm uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]" style={{ color: 'rgba(94, 212, 212, 0.6)' }}>
               Entering the Caverns...
             </p>
           </div>
-          <div className="w-[300px] h-[2px] relative overflow-hidden rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div className="w-[240px] sm:w-[300px] h-[2px] relative overflow-hidden rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <motion.div
               className="absolute top-0 left-0 h-full"
               style={{ background: 'linear-gradient(90deg, #F5C563, #5ED4D4, #C084FC, #4ADE80)', boxShadow: '0 0 12px rgba(94, 212, 212, 0.5)' }}
@@ -226,10 +259,13 @@ export const SlugTransformSequence: React.FC = () => {
             />
           </div>
           <div className="font-orbitron text-[10px] tracking-[0.2em]" style={{ color: 'rgba(192, 132, 252, 0.4)' }}>
-            LOADING... {Math.floor(loadProgress)}%
+            {loadingPhase === 'server'
+              ? 'INITIALIZING...'
+              : `LOADING FRAMES ${Math.floor(loadProgress)}%`
+            }
           </div>
           <div 
-            className="mt-8 px-5 py-3 rounded-lg max-w-xs text-center"
+            className="mt-8 px-5 py-3 rounded-lg max-w-xs text-center mx-4"
             style={{ 
               background: 'rgba(255, 255, 255, 0.04)', 
               border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -244,8 +280,8 @@ export const SlugTransformSequence: React.FC = () => {
 
       <div ref={containerRef} className="w-full relative" style={scrollTrackStyle}>
         <div className="sticky top-0 h-screen w-full overflow-hidden bg-[#050505]">
-          {/* Particles only after frames loaded — saves CPU during init */}
-          {isLoaded && <ParticleCanvas />}
+          {/* Particles only on desktop — saves CPU on mobile */}
+          {isLoaded && !IS_MOBILE && <ParticleCanvas />}
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10" style={{ filter: 'grayscale(1) contrast(1.1)' }} />
 
           <div className="scrolly-grade" />
@@ -253,14 +289,14 @@ export const SlugTransformSequence: React.FC = () => {
           <div className="absolute inset-0 z-20 pointer-events-none">
             {/* Beat A (0%–18%) */}
             <TextBeat progress={smoothProgress} start={0} end={0.18} position="center">
-              <div className="p-8 max-w-2xl text-center flex flex-col items-center">
-                <div className="font-orbitron text-[10px] sm:text-xs tracking-widest mb-4 inline-block text-white/50" style={{ textShadow: '0 0 8px rgba(255,255,255,0.2)' }}>
+              <div className="p-4 sm:p-8 max-w-2xl text-center flex flex-col items-center">
+                <div className="font-orbitron text-[9px] sm:text-xs tracking-widest mb-4 inline-block text-white/50" style={{ textShadow: '0 0 8px rgba(255,255,255,0.2)' }}>
                   // ELEMENTAL SLUG REPOSITORY v4.2 //
                 </div>
-                <h1 className="font-orbitron font-black text-5xl sm:text-7xl md:text-8xl tracking-tighter mb-4 uppercase text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 120px rgba(255,255,255,0.15), 0 4px 20px rgba(0,0,0,1)' }}>
+                <h1 className="font-orbitron font-black text-3xl sm:text-5xl md:text-7xl lg:text-8xl tracking-tighter mb-4 uppercase text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 120px rgba(255,255,255,0.15), 0 4px 20px rgba(0,0,0,1)' }}>
                   VELOCITY IS EVERYTHING
                 </h1>
-                <p className="font-inter text-base sm:text-xl max-w-xl mx-auto font-medium text-white/90" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9)' }}>
+                <p className="font-inter text-sm sm:text-base md:text-xl max-w-xl mx-auto font-medium text-white/90" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9)' }}>
                   Load your slug. Fire at velocity. Watch them transform into
                   extraordinary elemental beasts.
                 </p>
@@ -269,13 +305,13 @@ export const SlugTransformSequence: React.FC = () => {
 
             {/* Beat B (22%–42%) */}
             <TextBeat progress={smoothProgress} start={0.22} end={0.42} position="left">
-              <div className="p-8 max-w-xl pl-12 md:pl-[12vw]">
-                <h2 className="font-orbitron font-black text-4xl sm:text-6xl md:text-7xl mb-4 leading-tight uppercase text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 120px rgba(255,255,255,0.15), 0 4px 10px rgba(0,0,0,1)' }}>
+              <div className="p-4 sm:p-8 max-w-xl pl-6 sm:pl-12 md:pl-[12vw]">
+                <h2 className="font-orbitron font-black text-3xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 leading-tight uppercase text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 120px rgba(255,255,255,0.15), 0 4px 10px rgba(0,0,0,1)' }}>
                   ELEMENTAL
                   <br />
                   CORE
                 </h2>
-                <p className="font-inter text-base sm:text-lg max-w-sm mb-6 font-medium leading-relaxed text-white/90" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
+                <p className="font-inter text-sm sm:text-base md:text-lg max-w-sm mb-6 font-medium leading-relaxed text-white/90" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
                   Four elemental types. Each slug carries a unique genetic
                   signature — Fire, Water, Earth, Air. Master the elemental
                   cycle to dominate.
@@ -288,7 +324,7 @@ export const SlugTransformSequence: React.FC = () => {
                       whileInView={badgeInView}
                       viewport={badgeViewport}
                       transition={badgeTransition(i)}
-                      className="px-3 py-1 border border-white/30 rounded-full font-orbitron text-xs tracking-wider shadow-lg backdrop-blur-md bg-black/50 text-white/85"
+                      className="px-2 sm:px-3 py-1 border border-white/30 rounded-full font-orbitron text-[10px] sm:text-xs tracking-wider shadow-lg backdrop-blur-md bg-black/50 text-white/85"
                     >
                       {element}
                     </motion.div>
@@ -299,34 +335,34 @@ export const SlugTransformSequence: React.FC = () => {
 
             {/* Beat C (48%–68%) */}
             <TextBeat progress={smoothProgress} start={0.48} end={0.68} position="right">
-              <h2 className="font-orbitron font-black text-4xl sm:text-6xl md:text-7xl mb-4 leading-tight uppercase text-right text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 120px rgba(255,255,255,0.15), 0 4px 20px rgba(0,0,0,1)' }}>
+              <h2 className="font-orbitron font-black text-3xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 leading-tight uppercase text-right text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 120px rgba(255,255,255,0.15), 0 4px 20px rgba(0,0,0,1)' }}>
                 MINT.
                 <br />
                 BATTLE.
                 <br />
                 DOMINATE.
               </h2>
-              <p className="font-inter text-base sm:text-lg max-w-sm mb-8 text-right flex self-end font-medium text-white/90" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9)' }}>
+              <p className="font-inter text-sm sm:text-base md:text-lg max-w-sm mb-8 text-right flex self-end font-medium text-white/90" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9)' }}>
                 Hatch elemental slugs. Level them up. Exploit elemental
                 advantages. The cavern rewards the bold.
               </p>
               <div className="flex flex-col gap-3 self-end w-full max-w-[320px] text-right pointer-events-none">
-                <div className="p-4 backdrop-blur-md rounded-lg relative overflow-hidden border border-white/20 bg-black/50" style={{ boxShadow: '0 0 20px rgba(255,255,255,0.05)' }}>
+                <div className="p-3 sm:p-4 backdrop-blur-md rounded-lg relative overflow-hidden border border-white/20 bg-black/50" style={{ boxShadow: '0 0 20px rgba(255,255,255,0.05)' }}>
                   <div className="absolute top-0 left-0 w-1 h-full bg-white/60" />
-                  <div className="font-orbitron font-bold text-sm mb-1 tracking-wider text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
+                  <div className="font-orbitron font-bold text-xs sm:text-sm mb-1 tracking-wider text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
                     PVP ESCROW WAGERS
                   </div>
-                  <div className="font-inter text-xs leading-relaxed text-white/70">
+                  <div className="font-inter text-[11px] sm:text-xs leading-relaxed text-white/70">
                     Double-blind commit-reveal. Stake SUI on your slug — neither
                     player sees the other's element until both reveal!
                   </div>
                 </div>
-                <div className="p-4 backdrop-blur-md rounded-lg relative overflow-hidden mt-2 border border-white/15 bg-black/50">
+                <div className="p-3 sm:p-4 backdrop-blur-md rounded-lg relative overflow-hidden mt-2 border border-white/15 bg-black/50">
                   <div className="absolute top-0 right-0 w-1 h-full bg-white/40" />
-                  <div className="font-orbitron font-bold text-sm mb-1 tracking-wider text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
+                  <div className="font-orbitron font-bold text-xs sm:text-sm mb-1 tracking-wider text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
                     TRAINING GROUNDS
                   </div>
-                  <div className="font-inter text-xs leading-relaxed text-white/70">
+                  <div className="font-inter text-[11px] sm:text-xs leading-relaxed text-white/70">
                     Not ready for SUI wagers? Deploy to the Training Grounds to
                     fight random enemies and earn Dark Coins to level up your
                     slugs.
@@ -337,12 +373,12 @@ export const SlugTransformSequence: React.FC = () => {
 
             {/* Beat D (78%–100%) — final section, scroll ends here */}
             <TextBeat progress={smoothProgress} start={0.78} end={1.0} position="center">
-              <h2 className="font-orbitron font-black text-4xl sm:text-6xl md:text-7xl mb-4 uppercase text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.5), 0 0 120px rgba(255,255,255,0.2), 0 4px 20px rgba(0,0,0,1)' }}>
+              <h2 className="font-orbitron font-black text-3xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 uppercase text-white" style={{ textShadow: '0 0 60px rgba(255,255,255,0.5), 0 0 120px rgba(255,255,255,0.2), 0 4px 20px rgba(0,0,0,1)' }}>
                 ENTER THE
                 <br />
                 GLAZED ARENA
               </h2>
-              <p className="font-inter text-lg sm:text-xl max-w-md mx-auto mb-8 font-medium text-white/90" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9)' }}>
+              <p className="font-inter text-base sm:text-lg md:text-xl max-w-md mx-auto mb-8 font-medium text-white/90" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9)' }}>
                 Deploy protoform canisters. Wager SUI. The winning slug claims
                 everything.
               </p>
@@ -351,14 +387,14 @@ export const SlugTransformSequence: React.FC = () => {
                   whileHover={btnHover}
                   whileTap={btnTap}
                   onClick={() => window.dispatchEvent(new CustomEvent("switch-tab", { detail: "arena" }))}
-                  className="font-orbitron font-bold text-lg tracking-wider px-8 py-4 uppercase transition-colors duration-300 pointer-events-auto cursor-pointer text-white border-2 border-white/60 hover:bg-white/10"
+                  className="font-orbitron font-bold text-sm sm:text-lg tracking-wider px-6 sm:px-8 py-3 sm:py-4 uppercase transition-colors duration-300 pointer-events-auto cursor-pointer text-white border-2 border-white/60 hover:bg-white/10"
                   style={{ ...btnStyle, boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
                 >
                   [ ⬡ ENTER ARENA ]
                 </motion.button>
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent("switch-tab", { detail: "command" }))}
-                  className="font-inter text-sm transition-colors pointer-events-auto cursor-pointer text-white/40 hover:text-white/80"
+                  className="font-inter text-xs sm:text-sm transition-colors pointer-events-auto cursor-pointer text-white/40 hover:text-white/80"
                 >
                   [ View Arsenal → ]
                 </button>

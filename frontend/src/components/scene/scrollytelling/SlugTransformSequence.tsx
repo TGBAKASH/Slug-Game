@@ -11,13 +11,13 @@ const IS_MOBILE =
   typeof window !== "undefined" &&
   (window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
-// Mobile: load every 4th frame (50 frames). Desktop: every 2nd (100 frames).
-const FRAME_STEP = IS_MOBILE ? 4 : 2;
+// Desktop: load ALL 200 frames for maximum smoothness. Mobile: every 2nd (100 frames).
+const FRAME_STEP = IS_MOBILE ? 2 : 1;
 const FRAME_COUNT = Math.ceil(TOTAL_FRAMES_ON_DISK / FRAME_STEP);
-const EARLY_LOAD_THRESHOLD = 1.0;  // only show animation after ALL frames loaded
+const EARLY_LOAD_THRESHOLD = 1.0;  // NEVER change — animation ONLY starts after ALL frames loaded
 const MAX_DPR = IS_MOBILE ? 1 : 1.5;
 const SCRUB_EASE = IS_MOBILE ? 0.12 : 0.08; // lower = smoother momentum
-const CONCURRENT_LOADS = IS_MOBILE ? 6 : 12;
+const CONCURRENT_LOADS = IS_MOBILE ? 8 : 16;
 
 const REDUCED_MOTION =
   typeof window !== "undefined" &&
@@ -281,7 +281,7 @@ export const SlugTransformSequence: React.FC = () => {
       <div ref={containerRef} className="w-full relative" style={scrollTrackStyle}>
         <div className="sticky top-0 h-screen w-full overflow-hidden bg-[#050505]">
           {/* Particles only on desktop — saves CPU on mobile */}
-          {isLoaded && !IS_MOBILE && <ParticleCanvas />}
+          {isLoaded && <ParticleCanvas />}
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10" style={{ filter: 'grayscale(1) contrast(1.1)' }} />
 
           <div className="scrolly-grade" />

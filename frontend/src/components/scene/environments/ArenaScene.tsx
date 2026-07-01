@@ -8,8 +8,6 @@ import { ShockwaveEffect } from '../effects/ModularVFX';
 import { soundManager } from '../../../context/SoundManager';
 import { useSpring, a } from '@react-spring/three';
 
-// Preload the gun model
-useGLTF.preload('/models/gunslug.glb');
 
 interface ArenaSceneProps {
   playerSlug: { element: number; rarity: number } | null;

@@ -6,11 +6,6 @@ import { useGLTF, Clone, Center } from '@react-three/drei';
 
 import { soundManager } from '../../../context/SoundManager';
 
-// Preload the models so they are ready
-useGLTF.preload('/models/fireslug.glb');
-useGLTF.preload('/models/waterslug.glb');
-useGLTF.preload('/models/earthslug.glb');
-useGLTF.preload('/models/airslug.glb');
 
 // ═══════════════════════════════════════════════════
 // Props interface (unchanged for compatibility)

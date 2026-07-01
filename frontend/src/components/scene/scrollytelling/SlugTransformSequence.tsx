@@ -120,6 +120,31 @@ export const SlugTransformSequence: React.FC = () => {
     return () => { shell.style.overflow = ''; };
   }, [isLoaded]);
 
+  // ---- Preload GLB models AFTER frames finish (so they don't compete for bandwidth) ----
+  useEffect(() => {
+    if (!isLoaded) return;
+    // Small delay to let the scroll animation start smoothly first
+    const timer = setTimeout(() => {
+      const models = [
+        '/models/fireslug.glb',
+        '/models/waterslug.glb',
+        '/models/earthslug.glb',
+        '/models/airslug.glb',
+        '/models/gunslug.glb',
+        '/models/slug_shell.glb',
+      ];
+      models.forEach(src => {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = src;
+        link.as = 'fetch';
+        link.crossOrigin = 'anonymous';
+        document.head.appendChild(link);
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isLoaded]);
+
   // ---- Render loop (only after loaded) ----
   useEffect(() => {
     if (!isLoaded) return;

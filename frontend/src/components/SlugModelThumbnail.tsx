@@ -58,10 +58,3 @@ export function SlugModelThumbnail({ element }: { element: number }) {
     </Canvas>
   );
 }
-
-// Preload models so they're cached when Arsenal opens
-useGLTF.preload('/models/fireslug.glb');
-useGLTF.preload('/models/waterslug.glb');
-useGLTF.preload('/models/earthslug.glb');
-useGLTF.preload('/models/airslug.glb');
-useGLTF.preload('/models/gunslug.glb');

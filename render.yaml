@@ -1,11 +1,11 @@
 # Render Blueprint — two services:
-# 1. Static Site: Frontend (served from global CDN — FAST)
-# 2. Web Service: API only (Node.js, handles coins/energy)
+# 1. Static Site: Frontend at slugterra.onrender.com (global CDN)
+# 2. Web Service: API at slug-game.onrender.com (Node.js)
 
 services:
-  # Frontend — Global CDN, no CPU bottleneck
+  # Frontend — Global CDN
   - type: web
-    name: slug-frontend
+    name: slugterra
     runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
@@ -24,7 +24,7 @@ services:
         source: /*
         destination: /index.html
 
-  # Backend API — existing service
+  # Backend API
   - type: web
     name: slug-game
     runtime: node

@@ -49,9 +49,9 @@ const apiLimiter = rateLimit({
 
 // CORS — only allow our frontend domains
 const ALLOWED_ORIGINS = [
-  'https://slug-game-voi8.onrender.com',
+  'https://slugterra.onrender.com',
   'https://slug-game.onrender.com',
-  'http://localhost:5173', // local dev
+  'http://localhost:5173',
 ];
 app.use((req, res, next) => {
   const origin = req.headers.origin;

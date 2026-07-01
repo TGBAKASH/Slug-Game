@@ -60,7 +60,7 @@ export const SlugTransformSequence: React.FC = () => {
       new Promise((resolve) => {
         if (cancelled) { resolve(); return; }
         const img = new Image();
-        img.src = `/sequence/frame_${frameIdx.toString().padStart(4, "0")}.jpg`;
+        img.src = `/sequence/frame_${frameIdx.toString().padStart(4, "0")}.webp`;
 
         const done = () => {
           if (cancelled) { resolve(); return; }

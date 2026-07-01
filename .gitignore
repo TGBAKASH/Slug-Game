@@ -20,8 +20,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Large assets (host separately or use Git LFS)
-# frontend/public/sequence/
+# Ignore original 4K JPGs (384MB), keep optimized WebP (54MB)
+frontend/public/sequence/*.jpg
+frontend/convert_frames.py
 
 # Deploy temp files
 *.tar

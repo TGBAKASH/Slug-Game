@@ -49,6 +49,7 @@ const apiLimiter = rateLimit({
 
 // CORS — only allow our frontend domains
 const ALLOWED_ORIGINS = [
+  'https://slugterra.akashweb333.workers.dev',
   'https://slugterra.onrender.com',
   'https://slug-game.onrender.com',
   'http://localhost:5173',
